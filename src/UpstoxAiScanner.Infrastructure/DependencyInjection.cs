@@ -117,6 +117,28 @@ public static class DependencyInjection
         services.AddHostedService(sp => sp.GetRequiredService<MarketScannerBackgroundService>());
         services.AddSingleton<IBackgroundScannerControllerService>(sp => sp.GetRequiredService<MarketScannerBackgroundService>());
 
+        // Configure AI Explanation options with environment variable fallback
+        services.Configure<AiOptions>(options =>
+        {
+            configuration.GetSection(AiOptions.SectionName).Bind(options);
+
+            if (string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+                if (!string.IsNullOrWhiteSpace(envKey))
+                {
+                    options.ApiKey = envKey;
+                }
+            }
+        });
+
+        // Register AI Explanation Service with typed HttpClient
+        services.AddHttpClient<IAiExplanationService, AiExplanationService>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptionsMonitor<AiOptions>>().CurrentValue;
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
+
         return services;
     }
 }

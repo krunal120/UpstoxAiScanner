@@ -91,6 +91,15 @@ UpstoxAiScanner/
   - Auto-subscribes top scanner candidates to receive real-time price & volume ticks.
   - Realistic simulated tick generator in mock mode with micro-fluctuations and volume increments.
 
+### Phase 6: Grounded AI Technical Explanation Engine
+- **Strict Quantitative Grounding**: The AI engine never hallucinates or invents prices, indicators, or trading signals. Commentary is strictly synthesized from pre-computed indicators (EMAs, RSI, MACD, breakouts, volume surge, and deterministic technical scores).
+- **Dual-Mode AI Provider**:
+  - **Live OpenAI / LLM Mode**: Calls OpenAI API (`gpt-4o-mini` or configurable model) using JSON schema generation with `temperature: 0.2` when an API key is configured.
+  - **Deterministic Financial Narrative Engine**: Seamless zero-dependency institutional narrative generator producing executive summaries, key drivers, support/resistance analyses, risk factors, and multi-paragraph commentary when offline or unconfigured.
+- **On-Demand & Pre-computed Commentary**:
+  - `GET /api/scanner/stock/{symbol}/ai-explain`: Scans any tracked stock on-demand and returns a complete AI narrative.
+  - `POST /api/scanner/ai-explain`: Explains any pre-computed `ScanResultDto` payload.
+
 ---
 
 ## 3. API Endpoints
@@ -104,6 +113,8 @@ UpstoxAiScanner/
 | `GET` | `/api/scanner/stock/{symbol}` | Evaluates single stock on-demand with score breakdown | `symbol`, `scanType` (`Swing`/`Intraday`) |
 | `POST` | `/api/scanner/run` | Triggers universe scan and persists to SQL Server | `scanType`, `universe`, `limit` |
 | `GET` | `/api/scanner/history` | Retrieves historical scan results from database | `scanType`, `universe`, `signal`, `limit` |
+| `GET` | `/api/scanner/stock/{symbol}/ai-explain` | Grounded AI technical explanation & commentary on-demand | `symbol`, `scanType` (`Swing`/`Intraday`) |
+| `POST` | `/api/scanner/ai-explain` | Grounded AI commentary for a pre-computed scan result | JSON body (`ScanResultDto`) |
 | `GET` | `/api/scanner/market-status` | Current Indian market session status and IST countdown | None |
 | `GET` | `/api/scanner/background/status` | Telemetry & execution state of the background scanner | None |
 | `POST` | `/api/scanner/background/toggle` | Enables or pauses scheduled background scanning | `enabled` (`true`/`false`) |
@@ -188,7 +199,7 @@ dotnet run --project src/UpstoxAiScanner.Api
 
 ## 6. Running Tests
 
-Execute all 30 unit and integration tests:
+Execute all 77 unit and integration tests (100% passing):
 
 ```bash
 dotnet test UpstoxAiScanner.sln

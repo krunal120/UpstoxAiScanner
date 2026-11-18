@@ -316,6 +316,58 @@
             "description": "Subscribes instrument keys to the WebSocket feed for real-time price & volume ticks."
           },
           "response": []
+        },
+        {
+          "name": "12. AI Technical Explanation (Single Stock On-Demand)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/stock/RELIANCE/ai-explain?scanType=Swing",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "stock", "RELIANCE", "ai-explain"],
+              "query": [
+                {
+                  "key": "scanType",
+                  "value": "Swing"
+                }
+              ]
+            },
+            "description": "Generates grounded institutional AI market commentary explaining a stock's technical score (0-100), key drivers, support/resistance, and risk factors without hallucinating prices."
+          },
+          "response": []
+        },
+        {
+          "name": "13. AI Technical Explanation (From Pre-Computed Scan Result)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"RELIANCE\",\n  \"companyName\": \"Reliance Industries Ltd.\",\n  \"scanType\": \"Swing\",\n  \"currentPrice\": 3020.50,\n  \"technicalScore\": 85,\n  \"signal\": \"Strong Bullish\",\n  \"ema20\": 2950.0,\n  \"ema50\": 2890.0,\n  \"ema200\": 2650.0,\n  \"rsi\": 65.4,\n  \"macd\": 24.5,\n  \"volumeRatio\": 2.45,\n  \"breakoutStatus\": \"Breakout20\",\n  \"volumeStatus\": \"Surge\",\n  \"explanation\": \"Strong momentum breakout; 20 EMA above 50 EMA; High relative volume 2.45x\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/ai-explain",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "ai-explain"]
+            },
+            "description": "Takes a pre-computed ScanResultDto payload and generates structured narrative explanation using OpenAI or the deterministic rule-based engine."
+          },
+          "response": []
         }
       ]
     },

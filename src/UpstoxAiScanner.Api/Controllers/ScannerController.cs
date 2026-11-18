@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using UpstoxAiScanner.Application.Common;
+using UpstoxAiScanner.Application.DTOs.Ai;
 using UpstoxAiScanner.Application.DTOs.MarketData;
 using UpstoxAiScanner.Application.DTOs.Scanner;
 using UpstoxAiScanner.Application.Interfaces;
@@ -7,7 +8,7 @@ using UpstoxAiScanner.Application.Interfaces;
 namespace UpstoxAiScanner.Api.Controllers;
 
 /// <summary>
-/// Endpoints for Intraday and Swing trading scanners, rule-based scoring (0-100), market hours, and background services.
+/// Endpoints for Intraday and Swing trading scanners, rule-based scoring (0-100), market hours, background services, and AI explanations.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -18,6 +19,7 @@ public class ScannerController : ControllerBase
     private readonly IMarketHoursService _marketHoursService;
     private readonly IBackgroundScannerControllerService _backgroundService;
     private readonly IUpstoxWebSocketClient _webSocketClient;
+    private readonly IAiExplanationService _aiExplanationService;
     private readonly ILogger<ScannerController> _logger;
 
     public ScannerController(
@@ -25,12 +27,14 @@ public class ScannerController : ControllerBase
         IMarketHoursService marketHoursService,
         IBackgroundScannerControllerService backgroundService,
         IUpstoxWebSocketClient webSocketClient,
+        IAiExplanationService aiExplanationService,
         ILogger<ScannerController> logger)
     {
         _scannerService = scannerService;
         _marketHoursService = marketHoursService;
         _backgroundService = backgroundService;
         _webSocketClient = webSocketClient;
+        _aiExplanationService = aiExplanationService;
         _logger = logger;
     }
 
@@ -154,6 +158,51 @@ public class ScannerController : ControllerBase
         }
 
         return Ok(ApiResponse<ScanResultDto>.Ok(result, message: $"{scanType} scan complete for {symbol}. Score: {result.TechnicalScore} ({result.Signal})."));
+    }
+
+    /// <summary>
+    /// Generates grounded AI technical analysis and market commentary for a specific stock on-demand.
+    /// Strictly grounded in actual quantitative indicators; zero price hallucination.
+    /// </summary>
+    /// <param name="symbol">Stock symbol (e.g. "RELIANCE") or instrument key.</param>
+    /// <param name="scanType">"Swing" (daily) or "Intraday" (5m).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [HttpGet("stock/{symbol}/ai-explain")]
+    [ProducesResponseType(typeof(ApiResponse<AiExplanationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AiExplanationDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExplainStock(
+        string symbol,
+        [FromQuery] string scanType = "Swing",
+        CancellationToken cancellationToken = default)
+    {
+        var explanation = await _aiExplanationService.ExplainStockAsync(symbol, scanType, cancellationToken);
+        if (explanation == null)
+        {
+            return NotFound(ApiResponse<AiExplanationDto>.Fail($"Stock '{symbol}' could not be scanned or explained."));
+        }
+
+        return Ok(ApiResponse<AiExplanationDto>.Ok(explanation, message: $"AI technical explanation generated for {symbol} ({explanation.Provider})."));
+    }
+
+    /// <summary>
+    /// Generates grounded AI technical analysis and market commentary for a pre-computed scan result.
+    /// </summary>
+    /// <param name="scanResult">Pre-computed scan result payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [HttpPost("ai-explain")]
+    [ProducesResponseType(typeof(ApiResponse<AiExplanationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AiExplanationDto>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ExplainScanResult(
+        [FromBody] ScanResultDto scanResult,
+        CancellationToken cancellationToken = default)
+    {
+        if (scanResult == null || string.IsNullOrWhiteSpace(scanResult.Symbol))
+        {
+            return BadRequest(ApiResponse<AiExplanationDto>.Fail("A valid ScanResultDto with symbol is required."));
+        }
+
+        var explanation = await _aiExplanationService.ExplainScanResultAsync(scanResult, cancellationToken);
+        return Ok(ApiResponse<AiExplanationDto>.Ok(explanation, message: $"AI technical explanation generated for {scanResult.Symbol} ({explanation.Provider})."));
     }
 
     /// <summary>

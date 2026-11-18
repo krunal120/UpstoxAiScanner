@@ -48,7 +48,13 @@ public class TechnicalAnalysisService : ITechnicalAnalysisService
                 .FirstOrDefaultAsync(i => i.Symbol == normalizedSymbol, cancellationToken);
         }
 
-        string instrumentKey = instrument?.InstrumentKey ?? (normalizedSymbol.Contains('|') ? normalizedSymbol : $"NSE_EQ|{normalizedSymbol}");
+        if (instrument == null && !normalizedSymbol.Contains('|'))
+        {
+            _logger.LogWarning("Instrument with symbol '{Symbol}' was not found in the tracked database.", normalizedSymbol);
+            return null;
+        }
+
+        string instrumentKey = instrument?.InstrumentKey ?? normalizedSymbol;
         string targetSymbol = instrument?.Symbol ?? normalizedSymbol;
 
         // 2. Fetch candles from Upstox Market Data service
