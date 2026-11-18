@@ -42,7 +42,7 @@ public class ScannerController : ControllerBase
     /// Executes or retrieves ranked daily Swing trading opportunities scored from 0 to 100 based on
     /// EMA 20/50/200 alignment, 20/50-day high breakouts, MACD crossovers, RSI oversold recovery, and volume surges.
     /// </summary>
-    /// <param name="universe">Universe name (default: "NIFTY500").</param>
+    /// <param name="universe">Universe name: "ALL", "NSE", "BSE", or "NIFTY500" (default: "ALL").</param>
     /// <param name="signal">Filter by signal ("Strong Bullish", "Bullish", "Neutral", "Bearish", "Strong Bearish").</param>
     /// <param name="minScore">Minimum score threshold.</param>
     /// <param name="maxScore">Maximum score threshold.</param>
@@ -51,7 +51,7 @@ public class ScannerController : ControllerBase
     [HttpGet("swing")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ScanResultDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSwingOpportunities(
-        [FromQuery] string universe = "NIFTY500",
+        [FromQuery] string universe = "ALL",
         [FromQuery] string? signal = null,
         [FromQuery] decimal? minScore = null,
         [FromQuery] decimal? maxScore = null,
@@ -92,7 +92,7 @@ public class ScannerController : ControllerBase
     /// Executes or retrieves ranked 5-minute Intraday momentum opportunities scored from 0 to 100 based on
     /// 5m MACD crossovers, fast EMA trends, intraday breakout detection, and volume surges.
     /// </summary>
-    /// <param name="universe">Universe name (default: "NIFTY500").</param>
+    /// <param name="universe">Universe name: "ALL", "NSE", "BSE", or "NIFTY500" (default: "ALL").</param>
     /// <param name="signal">Filter by signal ("Strong Bullish", "Bullish", "Neutral", "Bearish", "Strong Bearish").</param>
     /// <param name="minScore">Minimum score threshold.</param>
     /// <param name="maxScore">Maximum score threshold.</param>
@@ -101,7 +101,7 @@ public class ScannerController : ControllerBase
     [HttpGet("intraday")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ScanResultDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetIntradayOpportunities(
-        [FromQuery] string universe = "NIFTY500",
+        [FromQuery] string universe = "ALL",
         [FromQuery] string? signal = null,
         [FromQuery] decimal? minScore = null,
         [FromQuery] decimal? maxScore = null,
@@ -209,14 +209,14 @@ public class ScannerController : ControllerBase
     /// Triggers an on-demand universe scan and persists all scored results to SQL Server.
     /// </summary>
     /// <param name="scanType">"Swing" or "Intraday".</param>
-    /// <param name="universe">Universe name (e.g. "NIFTY500").</param>
+    /// <param name="universe">Universe name ("ALL", "NSE", "BSE", "NIFTY500").</param>
     /// <param name="limit">Max number of top stocks to return (default: 20).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpPost("run")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ScanResultDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> TriggerScan(
         [FromQuery] string scanType = "Swing",
-        [FromQuery] string universe = "NIFTY500",
+        [FromQuery] string universe = "ALL",
         [FromQuery] int limit = 20,
         CancellationToken cancellationToken = default)
     {
@@ -231,7 +231,7 @@ public class ScannerController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ScanResultDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetScanHistory(
         [FromQuery] string scanType = "Swing",
-        [FromQuery] string? universe = "NIFTY500",
+        [FromQuery] string? universe = "ALL",
         [FromQuery] string? signal = null,
         [FromQuery] decimal? minScore = null,
         [FromQuery] decimal? maxScore = null,

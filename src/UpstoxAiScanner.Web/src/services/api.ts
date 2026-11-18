@@ -48,9 +48,9 @@ export const api = {
   },
 
   // Swing Opportunities
-  async getSwingOpportunities(limit = 20, signal?: string): Promise<ScanResultDto[]> {
+  async getSwingOpportunities(limit = 20, universe = 'ALL', signal?: string): Promise<ScanResultDto[]> {
     try {
-      const params = new URLSearchParams({ limit: limit.toString() });
+      const params = new URLSearchParams({ limit: limit.toString(), universe });
       if (signal && signal !== 'ALL') params.append('signal', signal);
       const res = await fetchJson<ScanResultDto[]>(`${API_BASE}/scanner/swing?${params.toString()}`);
       return res.data;
@@ -61,9 +61,9 @@ export const api = {
   },
 
   // Intraday Opportunities
-  async getIntradayOpportunities(limit = 20, signal?: string): Promise<ScanResultDto[]> {
+  async getIntradayOpportunities(limit = 20, universe = 'ALL', signal?: string): Promise<ScanResultDto[]> {
     try {
-      const params = new URLSearchParams({ limit: limit.toString() });
+      const params = new URLSearchParams({ limit: limit.toString(), universe });
       if (signal && signal !== 'ALL') params.append('signal', signal);
       const res = await fetchJson<ScanResultDto[]>(`${API_BASE}/scanner/intraday?${params.toString()}`);
       return res.data;
@@ -74,9 +74,18 @@ export const api = {
   },
 
   // Trigger On-Demand Universe Scan
-  async runUniverseScan(scanType: 'Swing' | 'Intraday' = 'Swing', limit = 20): Promise<ScanResultDto[]> {
+  async runUniverseScan(scanType: 'Swing' | 'Intraday' = 'Swing', limit = 20, universe = 'ALL'): Promise<ScanResultDto[]> {
     const res = await fetchJson<ScanResultDto[]>(
-      `${API_BASE}/scanner/run?scanType=${scanType}&limit=${limit}`,
+      `${API_BASE}/scanner/run?scanType=${scanType}&limit=${limit}&universe=${universe}`,
+      { method: 'POST' }
+    );
+    return res.data;
+  },
+
+  // Synchronize Stock Universe (ALL, NSE, BSE, NIFTY500)
+  async syncInstruments(universe = 'ALL') {
+    const res = await fetchJson<any>(
+      `${API_BASE}/instruments/sync?universe=${universe}`,
       { method: 'POST' }
     );
     return res.data;
@@ -150,6 +159,24 @@ export const api = {
   async toggleIgnoreMarketHours(ignore: boolean): Promise<boolean> {
     const res = await fetchJson<boolean>(
       `${API_BASE}/scanner/background/ignore-market-hours?ignore=${ignore}`,
+      { method: 'POST' }
+    );
+    return res.data;
+  },
+
+  // WebSocket Subscriptions
+  async getWebSocketSubscriptions(): Promise<string[]> {
+    try {
+      const res = await fetchJson<string[]>(`${API_BASE}/scanner/websocket/subscriptions`);
+      return res.data;
+    } catch {
+      return [];
+    }
+  },
+
+  async subscribeWebSocket(instrumentKeys: string[], mode = 'full'): Promise<boolean> {
+    const res = await fetchJson<boolean>(
+      `${API_BASE}/scanner/websocket/subscribe?instrumentKeys=${encodeURIComponent(instrumentKeys.join(','))}&mode=${mode}`,
       { method: 'POST' }
     );
     return res.data;

@@ -39,10 +39,31 @@ public class ScannerService : IScannerService
         _logger.LogInformation("Starting {ScanType} scan for universe {Universe}", normalizedScanType, universe);
 
         // Fetch active universe instruments
-        var instruments = await _dbContext.Instruments
-            .Where(i => i.Universe == universe && i.IsActive)
-            .OrderBy(i => i.Symbol)
-            .Take(50) // Scan top 50 active constituents per batch to maintain high responsiveness
+        var query = _dbContext.Instruments.Where(i => i.IsActive);
+
+        if (!universe.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            if (universe.Equals("NSE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Universe == "NSE" || i.Exchange == "NSE");
+            }
+            else if (universe.Equals("BSE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Universe == "BSE" || i.Exchange == "BSE");
+            }
+            else
+            {
+                query = query.Where(i => i.Universe == universe);
+            }
+        }
+
+        int scanBatchSize = Math.Clamp(limit > 0 ? limit * 2 : 50, 20, 100);
+
+        var instruments = await query
+            .OrderByDescending(i => i.Universe == "NIFTY500")
+            .ThenByDescending(i => i.Exchange == "NSE")
+            .ThenBy(i => i.Symbol)
+            .Take(scanBatchSize)
             .ToListAsync(cancellationToken);
 
         if (instruments.Count == 0)
@@ -165,7 +186,18 @@ public class ScannerService : IScannerService
         {
             if (!string.IsNullOrWhiteSpace(filter.Universe) && !filter.Universe.Equals("ALL", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(s => s.Instrument != null && s.Instrument.Universe == filter.Universe);
+                if (filter.Universe.Equals("NSE", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(s => s.Instrument != null && (s.Instrument.Universe == "NSE" || s.Instrument.Exchange == "NSE"));
+                }
+                else if (filter.Universe.Equals("BSE", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(s => s.Instrument != null && (s.Instrument.Universe == "BSE" || s.Instrument.Exchange == "BSE"));
+                }
+                else
+                {
+                    query = query.Where(s => s.Instrument != null && s.Instrument.Universe == filter.Universe);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Signal))
@@ -230,7 +262,10 @@ public class ScannerService : IScannerService
 
         var instrument = await _dbContext.Instruments
             .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Symbol == analysis.Symbol || i.InstrumentKey == analysis.InstrumentKey, cancellationToken);
+            .Where(i => i.Symbol == analysis.Symbol || i.InstrumentKey == analysis.InstrumentKey)
+            .OrderByDescending(i => i.Universe == "NIFTY500")
+            .ThenByDescending(i => i.Exchange == "NSE")
+            .FirstOrDefaultAsync(cancellationToken);
 
         var dto = new ScanResultDto
         {

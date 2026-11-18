@@ -72,7 +72,7 @@ export const StockAnalyzer: React.FC = () => {
               type="text"
               value={symbolInput}
               onChange={(e) => setSymbolInput(e.target.value.toUpperCase())}
-              placeholder="Enter Stock Symbol (e.g. RELIANCE, TCS, INFY)..."
+              placeholder="Enter any NSE or BSE symbol (e.g. RELIANCE, TCS, ZOMATO)..."
               className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-10 pr-4 py-2.5 text-xs font-mono uppercase text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
             />
@@ -143,6 +143,15 @@ export const StockAnalyzer: React.FC = () => {
             <div className="space-y-1 text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2">
                 <h3 className="text-2xl font-extrabold text-white">{scanResult.symbol}</h3>
+                <span
+                  className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-mono font-medium ${
+                    scanResult.instrumentKey.startsWith('BSE')
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                      : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  }`}
+                >
+                  {scanResult.instrumentKey.startsWith('BSE') ? 'BSE' : 'NSE'}
+                </span>
                 <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-mono text-slate-300">
                   {scanResult.scanType}
                 </span>

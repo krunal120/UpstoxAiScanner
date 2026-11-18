@@ -10,10 +10,10 @@ namespace UpstoxAiScanner.Application.Interfaces;
 public interface IInstrumentService
 {
     /// <summary>
-    /// Synchronizes the instrument universe (e.g. NIFTY 500) with Upstox's instrument master.
-    /// Downloads latest Upstox master file, matches symbols, and upserts into database.
+    /// Synchronizes the instrument universe (e.g. ALL, NSE, BSE, NIFTY500) with Upstox's instrument master.
+    /// Downloads latest Upstox master files, matches symbols, and upserts into database.
     /// </summary>
-    Task<InstrumentSyncSummaryDto> SyncUniverseInstrumentsAsync(string universe = "NIFTY500", CancellationToken cancellationToken = default);
+    Task<InstrumentSyncSummaryDto> SyncUniverseInstrumentsAsync(string universe = "ALL", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves paginated and filtered instruments from the database.
@@ -26,7 +26,7 @@ public interface IInstrumentService
     Task<InstrumentDto?> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves a single instrument by Upstox instrument key (e.g. "NSE_EQ|INE002A01018").
+    /// Retrieves a single instrument by Upstox instrument key (e.g. "NSE_EQ|INE002A01018" or "BSE_EQ|INE002A01018").
     /// </summary>
     Task<InstrumentDto?> GetByInstrumentKeyAsync(string instrumentKey, CancellationToken cancellationToken = default);
 
@@ -36,7 +36,7 @@ public interface IInstrumentService
     Task<bool> SetActiveStatusAsync(string symbol, bool isActive, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all active instruments for a given universe.
+    /// Gets all active instruments for a given universe (e.g. "ALL", "NSE", "BSE", "NIFTY500").
     /// </summary>
-    Task<IReadOnlyList<InstrumentDto>> GetActiveUniverseInstrumentsAsync(string universe = "NIFTY500", CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InstrumentDto>> GetActiveUniverseInstrumentsAsync(string universe = "ALL", CancellationToken cancellationToken = default);
 }

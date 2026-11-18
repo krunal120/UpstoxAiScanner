@@ -27,7 +27,7 @@ public class InstrumentsController : ControllerBase
     /// <summary>
     /// Retrieves paginated and filtered instruments in the stock universe.
     /// </summary>
-    /// <param name="universe">Universe name, e.g. "NIFTY500", "NIFTY50", or "ALL". Default is "NIFTY500".</param>
+    /// <param name="universe">Universe name, e.g. "ALL", "NSE", "BSE", "NIFTY500". Default is "ALL".</param>
     /// <param name="isActive">Filter by active status (true/false).</param>
     /// <param name="query">Search term matching symbol or company name.</param>
     /// <param name="page">1-based page index (default: 1).</param>
@@ -36,7 +36,7 @@ public class InstrumentsController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<InstrumentDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetInstruments(
-        [FromQuery] string? universe = "NIFTY500",
+        [FromQuery] string? universe = "ALL",
         [FromQuery] bool? isActive = null,
         [FromQuery] string? query = null,
         [FromQuery] int page = 1,
@@ -86,16 +86,16 @@ public class InstrumentsController : ControllerBase
     }
 
     /// <summary>
-    /// Synchronizes the specified stock universe (e.g. NIFTY500) with Upstox's official instrument master.
+    /// Synchronizes the specified stock universe (e.g. ALL, NSE, BSE, NIFTY500) with Upstox's official instrument master.
     /// Downloads the latest compressed instrument master, matches symbols/ISINs, and upserts into SQL Server.
     /// </summary>
-    /// <param name="universe">Universe to synchronize (default: "NIFTY500").</param>
+    /// <param name="universe">Universe to synchronize (default: "ALL").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpPost("sync")]
     [ProducesResponseType(typeof(ApiResponse<InstrumentSyncSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<InstrumentSyncSummaryDto>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> SyncInstruments(
-        [FromQuery] string universe = "NIFTY500",
+        [FromQuery] string universe = "ALL",
         CancellationToken cancellationToken = default)
     {
         try

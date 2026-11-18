@@ -54,7 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Upstox <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">AI Scanner</span>
               </span>
               <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 border border-indigo-500/20">
-                NIFTY 500
+                NSE & BSE ALL STOCKS
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">Quantitative Market Intelligence & Grounded AI Analysis</p>

@@ -192,31 +192,76 @@ export const BackgroundStatusCard: React.FC<BackgroundStatusCardProps> = ({
       </div>
 
       {/* WebSocket Active Subscriptions */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-violet-400" />
-            <h3 className="text-sm font-bold text-white">Live WebSocket Subscribed Instruments</h3>
+            <Radio className="h-5 w-5 text-violet-400" />
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">Live WebSocket Feed Channels</h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                  backgroundStatus?.isWebSocketConnected
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}>
+                  {backgroundStatus?.isWebSocketConnected ? '● Connected' : '○ Standby'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Streaming live ticks (LTP, bid/ask depth, traded volume) via Upstox WebSocket V3 Feed.
+              </p>
+            </div>
           </div>
-          <span className="text-xs font-mono text-slate-400">
-            {backgroundStatus?.trackedSubscribedSymbols?.length || 0} Active Channels
-          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                await api.subscribeWebSocket([
+                  'NSE_EQ|INE002A01018', // RELIANCE
+                  'NSE_EQ|INE467B01029', // TCS
+                  'NSE_EQ|INE040A01034', // HDFCBANK
+                  'NSE_EQ|INE009A01021', // INFY
+                  'NSE_EQ|INE090A01021', // ICICIBANK
+                ]);
+                onRefresh();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium hover:bg-indigo-600/50 transition-colors"
+            >
+              + Subscribe Nifty Leaders
+            </button>
+            <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">
+              {backgroundStatus?.webSocketActiveSubscriptionsCount || (backgroundStatus?.webSocketSubscriptions?.length || 0)} Channels
+            </span>
+          </div>
         </div>
 
-        <p className="text-xs text-slate-400">
-          The background scanning engine dynamically streams top scored candidates into the Upstox Market Data WebSocket V3 feed for real-time tick analysis.
-        </p>
+        {/* Channels List */}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-slate-400">
+            Active Subscribed Instruments:
+          </div>
 
-        <div className="flex flex-wrap gap-2 pt-2">
-          {backgroundStatus?.trackedSubscribedSymbols?.map((sym) => (
-            <span
-              key={sym}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 font-mono text-xs text-slate-200"
-            >
-              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-              {sym}
-            </span>
-          )) || <span className="text-xs text-slate-500">No active subscriptions.</span>}
+          {((backgroundStatus?.webSocketSubscriptions && backgroundStatus.webSocketSubscriptions.length > 0) ||
+            (backgroundStatus?.latestTopSignals && backgroundStatus.latestTopSignals.length > 0)) ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(backgroundStatus?.webSocketSubscriptions && backgroundStatus.webSocketSubscriptions.length > 0
+                ? backgroundStatus.webSocketSubscriptions
+                : backgroundStatus?.latestTopSignals?.map(s => s.symbol) || []
+              ).map((item) => (
+                <span
+                  key={item}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  {item.replace('NSE_EQ|', '')}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-slate-950/60 p-4 text-center text-xs text-slate-500 border border-slate-800/60">
+              No active channels subscribed yet. Click <span className="text-indigo-400 font-medium">"+ Subscribe Nifty Leaders"</span> above or let the automated scanner run to auto-subscribe top breakout stocks.
+            </div>
+          )}
         </div>
       </div>
     </div>

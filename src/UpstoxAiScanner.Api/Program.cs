@@ -149,13 +149,13 @@ using (var scope = app.Services.CreateScope())
             await db.Database.MigrateAsync();
         }
 
-        // Automatically seed Nifty 500 constituents if Instruments table is empty
+        // Automatically seed stock universe if Instruments table is empty
         if (!await db.Instruments.AnyAsync())
         {
-            logger.LogInformation("Instruments table is empty. Automatically synchronizing Nifty 500 universe...");
+            logger.LogInformation("Instruments table is empty. Automatically synchronizing ALL NSE & BSE stock universe...");
             var instrumentService = services.GetRequiredService<IInstrumentService>();
-            await instrumentService.SyncUniverseInstrumentsAsync("NIFTY500");
-            logger.LogInformation("Nifty 500 universe successfully synchronized.");
+            await instrumentService.SyncUniverseInstrumentsAsync("ALL");
+            logger.LogInformation("Stock universe successfully synchronized.");
         }
     }
     catch (Exception ex)

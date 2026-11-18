@@ -19,7 +19,20 @@ public class InstrumentService : IInstrumentService
     private readonly ILogger<InstrumentService> _logger;
 
     private const string UpstoxNseMasterUrl = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz";
+    private const string UpstoxBseMasterUrl = "https://assets.upstox.com/market-quote/instruments/exchange/BSE.json.gz";
     private const string NseArchivesNifty500Url = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv";
+
+    // NSE equity series: EQ (normal), BE (trade-to-trade), SM (SME), ST (SME trade-to-trade), BZ (Z group)
+    private static readonly HashSet<string> NseEquityTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "EQ", "BE", "SM", "ST", "BZ"
+    };
+
+    // Exclude debt / government / mutual fund types from BSE EQ segment: F (debt/bonds), G (Govt securities), E (ETFs/MFs)
+    private static readonly HashSet<string> BseExcludedTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "F", "G", "E"
+    };
 
     public InstrumentService(
         UpstoxScannerDbContext dbContext,
@@ -31,7 +44,7 @@ public class InstrumentService : IInstrumentService
         _logger = logger;
     }
 
-    public async Task<InstrumentSyncSummaryDto> SyncUniverseInstrumentsAsync(string universe = "NIFTY500", CancellationToken cancellationToken = default)
+    public async Task<InstrumentSyncSummaryDto> SyncUniverseInstrumentsAsync(string universe = "ALL", CancellationToken cancellationToken = default)
     {
         var summary = new InstrumentSyncSummaryDto
         {
@@ -43,74 +56,132 @@ public class InstrumentService : IInstrumentService
         {
             _logger.LogInformation("Starting instrument universe synchronization for {Universe}", universe);
 
-            // Step 1: Download & decompress Upstox NSE Master
-            _logger.LogInformation("Downloading Upstox NSE instrument master from {Url}...", UpstoxNseMasterUrl);
-            var masterRecords = await DownloadUpstoxNseMasterAsync(cancellationToken);
-            summary.TotalDownloadedFromMaster = masterRecords.Count;
-            _logger.LogInformation("Downloaded and decompressed {Count} total equity instruments from Upstox master", masterRecords.Count);
+            string normalizedUniverse = (universe ?? "ALL").ToUpperInvariant();
+            bool syncNse = normalizedUniverse == "ALL" || normalizedUniverse == "NSE" || normalizedUniverse == "NIFTY500";
+            bool syncBse = normalizedUniverse == "ALL" || normalizedUniverse == "BSE";
 
-            // Index Upstox master by symbol and ISIN for fast O(1) matching
-            var bySymbol = new Dictionary<string, UpstoxMasterRecord>(StringComparer.OrdinalIgnoreCase);
-            var byIsin = new Dictionary<string, UpstoxMasterRecord>(StringComparer.OrdinalIgnoreCase);
+            // Step 1: Download Nifty 500 constituents if syncing NSE or NIFTY500
+            var nifty500Isins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var nifty500Symbols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var nifty500BySymbol = new Dictionary<string, Nifty500ConstituentRecord>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var record in masterRecords)
+            if (syncNse)
             {
-                if (!string.IsNullOrWhiteSpace(record.TradingSymbol) && !bySymbol.ContainsKey(record.TradingSymbol))
+                try
                 {
-                    bySymbol[record.TradingSymbol] = record;
+                    var constituents = await GetNifty500ConstituentsAsync(cancellationToken);
+                    summary.TotalConstituentsProcessed = constituents.Count;
+                    foreach (var c in constituents)
+                    {
+                        if (!string.IsNullOrWhiteSpace(c.IsinCode)) nifty500Isins.Add(c.IsinCode);
+                        if (!string.IsNullOrWhiteSpace(c.Symbol))
+                        {
+                            nifty500Symbols.Add(c.Symbol);
+                            nifty500BySymbol[c.Symbol] = c;
+                        }
+                    }
+                    _logger.LogInformation("Loaded {Count} Nifty 500 constituents for index tagging", constituents.Count);
                 }
-
-                if (!string.IsNullOrWhiteSpace(record.Isin) && !byIsin.ContainsKey(record.Isin))
+                catch (Exception ex)
                 {
-                    byIsin[record.Isin] = record;
+                    _logger.LogWarning(ex, "Could not load Nifty 500 constituents, proceeding with Upstox master records only: {Message}", ex.Message);
                 }
             }
 
-            // Step 2: Fetch constituents (Nifty 500)
-            var constituents = await GetNifty500ConstituentsAsync(cancellationToken);
-            summary.TotalConstituentsProcessed = constituents.Count;
-            _logger.LogInformation("Retrieved {Count} constituents for {Universe}", constituents.Count, universe);
+            // Step 2: Download Upstox Master files for requested exchanges
+            var recordsToProcess = new List<(UpstoxMasterRecord Record, string DefaultExchange, string DefaultSegment, string TargetUniverse)>();
+            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // Step 3: Match constituents to Upstox master
-            var existingInstruments = await _dbContext.Instruments
-                .Where(i => i.Universe == universe)
-                .ToDictionaryAsync(i => i.Symbol, StringComparer.OrdinalIgnoreCase, cancellationToken);
-
-            var unmatchedList = new List<string>();
-            var now = DateTimeOffset.UtcNow;
-
-            foreach (var constituent in constituents)
+            if (syncNse)
             {
-                // Match primarily by ISIN, then by trading symbol
-                UpstoxMasterRecord? matched = null;
-                if (!string.IsNullOrWhiteSpace(constituent.IsinCode) && byIsin.TryGetValue(constituent.IsinCode, out var byIsinMatch))
-                {
-                    matched = byIsinMatch;
-                }
-                else if (bySymbol.TryGetValue(constituent.Symbol, out var bySymbolMatch))
-                {
-                    matched = bySymbolMatch;
-                }
+                _logger.LogInformation("Downloading Upstox NSE instrument master from {Url}...", UpstoxNseMasterUrl);
+                var nseRecords = await DownloadUpstoxNseMasterAsync(cancellationToken);
+                summary.TotalDownloadedFromMaster += nseRecords.Count;
+                _logger.LogInformation("Downloaded and decompressed {Count} NSE equity instruments", nseRecords.Count);
 
-                if (matched == null || string.IsNullOrWhiteSpace(matched.InstrumentKey))
+                foreach (var record in nseRecords)
                 {
-                    unmatchedList.Add(constituent.Symbol);
-                    _logger.LogWarning("Constituent {Symbol} ({Company}) could not be matched with Upstox master", constituent.Symbol, constituent.CompanyName);
-                    continue;
+                    if (string.IsNullOrWhiteSpace(record.InstrumentKey) || !seenKeys.Add(record.InstrumentKey))
+                        continue;
+
+                    // Tag as NIFTY500 constituent if matching ISIN or trading symbol
+                    bool isNifty500 = (!string.IsNullOrWhiteSpace(record.Isin) && nifty500Isins.Contains(record.Isin)) ||
+                                      (!string.IsNullOrWhiteSpace(record.TradingSymbol) && nifty500Symbols.Contains(record.TradingSymbol));
+
+                    string targetUniverse = isNifty500 ? "NIFTY500" : "NSE";
+
+                    // If user requested strictly NIFTY500, filter out non-Nifty stocks
+                    if (normalizedUniverse == "NIFTY500" && !isNifty500)
+                        continue;
+
+                    recordsToProcess.Add((record, "NSE", "NSE_EQ", targetUniverse));
                 }
+            }
+
+            if (syncBse)
+            {
+                _logger.LogInformation("Downloading Upstox BSE instrument master from {Url}...", UpstoxBseMasterUrl);
+                var bseRecords = await DownloadUpstoxBseMasterAsync(cancellationToken);
+                summary.TotalDownloadedFromMaster += bseRecords.Count;
+                _logger.LogInformation("Downloaded and decompressed {Count} BSE equity instruments", bseRecords.Count);
+
+                foreach (var record in bseRecords)
+                {
+                    if (string.IsNullOrWhiteSpace(record.InstrumentKey) || !seenKeys.Add(record.InstrumentKey))
+                        continue;
+
+                    recordsToProcess.Add((record, "BSE", "BSE_EQ", "BSE"));
+                }
+            }
+
+            _logger.LogInformation("Total active equities queued for upsert: {Count}", recordsToProcess.Count);
+
+            // Step 3: Load existing instruments by InstrumentKey
+            var existingInstruments = await _dbContext.Instruments
+                .ToDictionaryAsync(i => i.InstrumentKey, StringComparer.OrdinalIgnoreCase, cancellationToken);
+
+            var now = DateTimeOffset.UtcNow;
+            int batchCount = 0;
+
+            foreach (var (record, defExchange, defSegment, targetUniv) in recordsToProcess)
+            {
+                string symbol = (record.TradingSymbol ?? string.Empty).Trim().ToUpperInvariant();
+                if (symbol.Length > 50) symbol = symbol[..50];
+
+                string companyName = (record.Name ?? record.TradingSymbol ?? symbol).Trim();
+                if (nifty500BySymbol.TryGetValue(symbol, out var n500) && !string.IsNullOrWhiteSpace(n500.CompanyName))
+                {
+                    companyName = n500.CompanyName.Trim();
+                }
+                if (companyName.Length > 250) companyName = companyName[..250];
+
+                string instrumentKey = record.InstrumentKey!.Trim();
+                if (instrumentKey.Length > 100) instrumentKey = instrumentKey[..100];
+
+                string exchange = (record.Exchange ?? defExchange).Trim();
+                if (exchange.Length > 20) exchange = exchange[..20];
+
+                string segment = (record.Segment ?? defSegment).Trim();
+                if (segment.Length > 20) segment = segment[..20];
+
+                string instrumentType = (record.InstrumentType ?? "EQ").Trim();
+                if (instrumentType.Length > 20) instrumentType = instrumentType[..20];
+
+                string? isin = record.Isin?.Trim();
+                if (isin != null && isin.Length > 50) isin = isin[..50];
 
                 summary.MatchedCount++;
 
-                if (existingInstruments.TryGetValue(constituent.Symbol, out var existing))
+                if (existingInstruments.TryGetValue(instrumentKey, out var existing))
                 {
-                    // Update existing
                     bool modified = false;
-                    if (existing.InstrumentKey != matched.InstrumentKey) { existing.InstrumentKey = matched.InstrumentKey; modified = true; }
-                    if (existing.CompanyName != constituent.CompanyName) { existing.CompanyName = constituent.CompanyName; modified = true; }
-                    if (existing.Isin != constituent.IsinCode) { existing.Isin = constituent.IsinCode; modified = true; }
-                    if (existing.Exchange != (matched.Exchange ?? "NSE")) { existing.Exchange = matched.Exchange ?? "NSE"; modified = true; }
-                    if (existing.Segment != (matched.Segment ?? "NSE_EQ")) { existing.Segment = matched.Segment ?? "NSE_EQ"; modified = true; }
-                    if (existing.InstrumentType != (matched.InstrumentType ?? "EQ")) { existing.InstrumentType = matched.InstrumentType ?? "EQ"; modified = true; }
+                    if (existing.Symbol != symbol) { existing.Symbol = symbol; modified = true; }
+                    if (existing.CompanyName != companyName) { existing.CompanyName = companyName; modified = true; }
+                    if (existing.Exchange != exchange) { existing.Exchange = exchange; modified = true; }
+                    if (existing.Segment != segment) { existing.Segment = segment; modified = true; }
+                    if (existing.InstrumentType != instrumentType) { existing.InstrumentType = instrumentType; modified = true; }
+                    if (existing.Isin != isin) { existing.Isin = isin; modified = true; }
+                    if (existing.Universe != targetUniv) { existing.Universe = targetUniv; modified = true; }
 
                     if (modified)
                     {
@@ -124,33 +195,38 @@ public class InstrumentService : IInstrumentService
                 }
                 else
                 {
-                    // Insert new
-                    var newInstrument = new Instrument
+                    var newInst = new Instrument
                     {
-                        Symbol = constituent.Symbol,
-                        CompanyName = constituent.CompanyName,
-                        InstrumentKey = matched.InstrumentKey,
-                        Exchange = matched.Exchange ?? "NSE",
-                        Segment = matched.Segment ?? "NSE_EQ",
-                        InstrumentType = matched.InstrumentType ?? "EQ",
-                        Isin = constituent.IsinCode,
-                        Universe = universe,
+                        Symbol = symbol,
+                        CompanyName = companyName,
+                        InstrumentKey = instrumentKey,
+                        Exchange = exchange,
+                        Segment = segment,
+                        InstrumentType = instrumentType,
+                        Isin = isin,
+                        Universe = targetUniv,
                         IsActive = true,
                         CreatedAt = now,
                         UpdatedAt = now
                     };
 
-                    await _dbContext.Instruments.AddAsync(newInstrument, cancellationToken);
+                    await _dbContext.Instruments.AddAsync(newInst, cancellationToken);
+                    existingInstruments[instrumentKey] = newInst;
                     summary.AddedCount++;
+                }
+
+                batchCount++;
+                if (batchCount % 1000 == 0)
+                {
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                    _logger.LogInformation("Saved batch of 1,000 instruments ({Processed}/{Total})", batchCount, recordsToProcess.Count);
                 }
             }
 
-            summary.UnmatchedSymbols = unmatchedList;
-
-            // Save to database
+            // Save remaining batch
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            summary.Message = $"Sync successful for {universe}. Processed: {summary.TotalConstituentsProcessed}, Matched: {summary.MatchedCount}, Added: {summary.AddedCount}, Updated: {summary.UpdatedCount}, Unchanged: {summary.UnchangedCount}, Unmatched: {unmatchedList.Count}.";
+            summary.Message = $"Sync successful for {universe}. Processed: {recordsToProcess.Count}, Added: {summary.AddedCount}, Updated: {summary.UpdatedCount}, Unchanged: {summary.UnchangedCount}.";
             _logger.LogInformation(summary.Message);
         }
         catch (Exception ex)
@@ -169,7 +245,18 @@ public class InstrumentService : IInstrumentService
 
         if (!string.IsNullOrWhiteSpace(filter.Universe) && !filter.Universe.Equals("ALL", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(i => i.Universe == filter.Universe);
+            if (filter.Universe.Equals("NSE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Universe == "NSE" || i.Exchange == "NSE");
+            }
+            else if (filter.Universe.Equals("BSE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Universe == "BSE" || i.Exchange == "BSE");
+            }
+            else
+            {
+                query = query.Where(i => i.Universe == filter.Universe);
+            }
         }
 
         if (filter.IsActive.HasValue)
@@ -189,7 +276,9 @@ public class InstrumentService : IInstrumentService
         var pageSize = Math.Clamp(filter.PageSize, 1, 500);
 
         var items = await query
-            .OrderBy(i => i.Symbol)
+            .OrderByDescending(i => i.Universe == "NIFTY500")
+            .ThenByDescending(i => i.Exchange == "NSE")
+            .ThenBy(i => i.Symbol)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(i => new InstrumentDto
@@ -214,8 +303,12 @@ public class InstrumentService : IInstrumentService
 
     public async Task<InstrumentDto?> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default)
     {
+        var normalized = symbol.Trim().ToUpperInvariant();
         var entity = await _dbContext.Instruments.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Symbol == symbol.ToUpperInvariant(), cancellationToken);
+            .Where(i => i.Symbol == normalized)
+            .OrderByDescending(i => i.Universe == "NIFTY500")
+            .ThenByDescending(i => i.Exchange == "NSE")
+            .FirstOrDefaultAsync(cancellationToken);
 
         return entity == null ? null : MapToDto(entity);
     }
@@ -223,7 +316,7 @@ public class InstrumentService : IInstrumentService
     public async Task<InstrumentDto?> GetByInstrumentKeyAsync(string instrumentKey, CancellationToken cancellationToken = default)
     {
         var entity = await _dbContext.Instruments.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.InstrumentKey == instrumentKey, cancellationToken);
+            .FirstOrDefaultAsync(i => i.InstrumentKey == instrumentKey.Trim(), cancellationToken);
 
         return entity == null ? null : MapToDto(entity);
     }
@@ -242,11 +335,30 @@ public class InstrumentService : IInstrumentService
         return true;
     }
 
-    public async Task<IReadOnlyList<InstrumentDto>> GetActiveUniverseInstrumentsAsync(string universe = "NIFTY500", CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<InstrumentDto>> GetActiveUniverseInstrumentsAsync(string universe = "ALL", CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Instruments.AsNoTracking()
-            .Where(i => i.Universe == universe && i.IsActive)
-            .OrderBy(i => i.Symbol)
+        var query = _dbContext.Instruments.AsNoTracking().Where(i => i.IsActive);
+
+        if (!universe.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            if (universe.Equals("NSE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Universe == "NSE" || i.Exchange == "NSE");
+            }
+            else if (universe.Equals("BSE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Universe == "BSE" || i.Exchange == "BSE");
+            }
+            else
+            {
+                query = query.Where(i => i.Universe == universe);
+            }
+        }
+
+        return await query
+            .OrderByDescending(i => i.Universe == "NIFTY500")
+            .ThenByDescending(i => i.Exchange == "NSE")
+            .ThenBy(i => i.Symbol)
             .Select(i => MapToDto(i))
             .ToListAsync(cancellationToken);
     }
@@ -289,10 +401,41 @@ public class InstrumentService : IInstrumentService
         if (records == null)
             return new List<UpstoxMasterRecord>();
 
-        // We only care about NSE equities (NSE_EQ / EQ)
+        // Filter for active NSE equities across EQ, BE, SM, ST, BZ
         return records
             .Where(r => string.Equals(r.Segment, "NSE_EQ", StringComparison.OrdinalIgnoreCase) &&
-                        string.Equals(r.InstrumentType, "EQ", StringComparison.OrdinalIgnoreCase))
+                        !string.IsNullOrWhiteSpace(r.InstrumentType) &&
+                        NseEquityTypes.Contains(r.InstrumentType) &&
+                        !string.IsNullOrWhiteSpace(r.TradingSymbol) &&
+                        !string.IsNullOrWhiteSpace(r.InstrumentKey))
+            .ToList();
+    }
+
+    private async Task<List<UpstoxMasterRecord>> DownloadUpstoxBseMasterAsync(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, UpstoxBseMasterUrl);
+        request.Headers.Add("User-Agent", "UpstoxAiScanner/1.0");
+
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var gzipStream = new GZipStream(stream, CompressionMode.Decompress);
+
+        var records = await JsonSerializer.DeserializeAsync<List<UpstoxMasterRecord>>(gzipStream, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        }, cancellationToken);
+
+        if (records == null)
+            return new List<UpstoxMasterRecord>();
+
+        // Filter for active BSE equities, excluding debt and bond types
+        return records
+            .Where(r => string.Equals(r.Segment, "BSE_EQ", StringComparison.OrdinalIgnoreCase) &&
+                        (string.IsNullOrWhiteSpace(r.InstrumentType) || !BseExcludedTypes.Contains(r.InstrumentType)) &&
+                        !string.IsNullOrWhiteSpace(r.TradingSymbol) &&
+                        !string.IsNullOrWhiteSpace(r.InstrumentKey))
             .ToList();
     }
 
@@ -325,7 +468,6 @@ public class InstrumentService : IInstrumentService
             var seedPath = Path.Combine(AppContext.BaseDirectory, "Data", "Seed", "ind_nifty500list.csv");
             if (!File.Exists(seedPath))
             {
-                // Try relative to project root
                 var altPath = Path.Combine(Directory.GetCurrentDirectory(), "src", "UpstoxAiScanner.Infrastructure", "Data", "Seed", "ind_nifty500list.csv");
                 if (File.Exists(altPath))
                     seedPath = altPath;

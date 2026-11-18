@@ -16,6 +16,8 @@ interface ScannerTableProps {
   subtitle: string;
   items: ScanResultDto[];
   isLoading: boolean;
+  universe?: string;
+  onUniverseChange?: (universe: string) => void;
   onSelectStock: (stock: ScanResultDto) => void;
   onExplainAi: (stock: ScanResultDto) => void;
 }
@@ -25,6 +27,8 @@ export const ScannerTable: React.FC<ScannerTableProps> = ({
   subtitle,
   items,
   isLoading,
+  universe,
+  onUniverseChange,
   onSelectStock,
   onExplainAi,
 }) => {
@@ -50,6 +54,39 @@ export const ScannerTable: React.FC<ScannerTableProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Universe Selection Bar */}
+      {onUniverseChange && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-300">Market Universe:</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'ALL', label: 'All Stocks (NSE & BSE)' },
+                { id: 'NIFTY500', label: 'Nifty 500' },
+                { id: 'NSE', label: 'NSE Equities' },
+                { id: 'BSE', label: 'BSE Equities' },
+              ].map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => onUniverseChange(u.id)}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                    (universe || 'ALL').toUpperCase() === u.id
+                      ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                      : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/50'
+                  }`}
+                >
+                  {u.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <span className="text-[11px] font-mono text-slate-500 hidden sm:inline">
+            Cross-Exchange Institutional Coverage
+          </span>
+        </div>
+      )}
+
       {/* Header and Controls */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -164,8 +201,19 @@ export const ScannerTable: React.FC<ScannerTableProps> = ({
                     {/* Stock Symbol & Name */}
                     <td className="px-4 py-3">
                       <div>
-                        <div className="font-bold text-white group-hover:text-cyan-400 transition-colors">
-                          {item.symbol}
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white group-hover:text-cyan-400 transition-colors">
+                            {item.symbol}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono font-medium ${
+                              item.instrumentKey.startsWith('BSE')
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                            }`}
+                          >
+                            {item.instrumentKey.startsWith('BSE') ? 'BSE' : 'NSE'}
+                          </span>
                         </div>
                         <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
                           {item.companyName}

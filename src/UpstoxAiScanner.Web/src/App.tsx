@@ -13,6 +13,7 @@ import type {
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'swing' | 'intraday' | 'analyzer' | 'background'>('swing');
+  const [selectedUniverse, setSelectedUniverse] = useState<string>('ALL');
   const [marketStatus, setMarketStatus] = useState<MarketSessionStatus | null>(null);
   const [backgroundStatus, setBackgroundStatus] = useState<BackgroundScannerStatusDto | null>(null);
   const [swingItems, setSwingItems] = useState<ScanResultDto[]>([]);
@@ -28,8 +29,8 @@ export const App: React.FC = () => {
       const [mStatus, bgStatus, swings, intradays] = await Promise.all([
         api.getMarketStatus(),
         api.getBackgroundStatus(),
-        api.getSwingOpportunities(30),
-        api.getIntradayOpportunities(30),
+        api.getSwingOpportunities(30, selectedUniverse),
+        api.getIntradayOpportunities(30, selectedUniverse),
       ]);
 
       setMarketStatus(mStatus);
@@ -38,6 +39,23 @@ export const App: React.FC = () => {
       setIntradayItems(intradays);
     } catch (err) {
       console.error('Failed to load initial scanner data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUniverseChange = async (newUniverse: string) => {
+    setSelectedUniverse(newUniverse);
+    setIsLoading(true);
+    try {
+      const [swings, intradays] = await Promise.all([
+        api.getSwingOpportunities(30, newUniverse),
+        api.getIntradayOpportunities(30, newUniverse),
+      ]);
+      setSwingItems(swings);
+      setIntradayItems(intradays);
+    } catch (err) {
+      console.error(`Failed to load data for universe ${newUniverse}:`, err);
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +85,7 @@ export const App: React.FC = () => {
     setIsScanning(true);
     try {
       const scanType = activeTab === 'intraday' ? 'Intraday' : 'Swing';
-      const results = await api.runUniverseScan(scanType, 30);
+      const results = await api.runUniverseScan(scanType, 30, selectedUniverse);
       if (scanType === 'Swing') {
         setSwingItems(results);
       } else {
@@ -104,6 +122,8 @@ export const App: React.FC = () => {
             subtitle="Ranked 0-100 based on EMA 20/50/200 alignment, 20/50-day resistance breakouts, MACD momentum, and volume surge."
             items={swingItems}
             isLoading={isLoading}
+            universe={selectedUniverse}
+            onUniverseChange={handleUniverseChange}
             onSelectStock={(stk) => setSelectedStock(stk)}
             onExplainAi={(stk) => setSelectedStock(stk)}
           />
@@ -115,6 +135,8 @@ export const App: React.FC = () => {
             subtitle="Ranked 0-100 on 5-minute candles: Fast EMA slope, intraday resistance breaks, MACD crossovers, and volume expansions."
             items={intradayItems}
             isLoading={isLoading}
+            universe={selectedUniverse}
+            onUniverseChange={handleUniverseChange}
             onSelectStock={(stk) => setSelectedStock(stk)}
             onExplainAi={(stk) => setSelectedStock(stk)}
           />

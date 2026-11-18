@@ -99,4 +99,36 @@ public class InstrumentsEndpointsTests : IClassFixture<WebApplicationFactory<Pro
         // Re-activate RELIANCE
         await _client.PatchAsync("/api/instruments/RELIANCE/status?isActive=true", null);
     }
+
+    [Fact]
+    public async Task GetInstruments_AllUniverses_ReturnsSuccess()
+    {
+        // Act
+        var responseAll = await _client.GetAsync("/api/instruments?universe=ALL&pageSize=10");
+        var responseNse = await _client.GetAsync("/api/instruments?universe=NSE&pageSize=10");
+        var responseBse = await _client.GetAsync("/api/instruments?universe=BSE&pageSize=10");
+
+        // Assert
+        responseAll.StatusCode.Should().Be(HttpStatusCode.OK);
+        responseNse.StatusCode.Should().Be(HttpStatusCode.OK);
+        responseBse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task SyncAllUniverse_PopulatesAllNseAndBseStocks()
+    {
+        // Act: Sync ALL universe (NSE + BSE)
+        var response = await _client.PostAsync("/api/instruments/sync?universe=ALL", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<InstrumentSyncSummaryDto>>();
+
+        body.Should().NotBeNull();
+        body!.Success.Should().BeTrue();
+        body.Data.Should().NotBeNull();
+        body.Data!.Universe.Should().Be("ALL");
+        body.Data.TotalDownloadedFromMaster.Should().BeGreaterThan(5000);
+        body.Data.MatchedCount.Should().BeGreaterThan(5000);
+    }
 }

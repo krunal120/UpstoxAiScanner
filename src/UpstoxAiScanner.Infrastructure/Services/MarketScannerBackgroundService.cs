@@ -146,6 +146,7 @@ public class MarketScannerBackgroundService : BackgroundService, IBackgroundScan
             Universe = _optionsMonitor.CurrentValue.Universe,
             IsWebSocketConnected = _webSocketClient.IsConnected,
             WebSocketActiveSubscriptionsCount = _webSocketClient.Subscriptions.Count,
+            WebSocketSubscriptions = _webSocketClient.Subscriptions,
             LatestTopSignals = _latestTopSignals
         };
     }

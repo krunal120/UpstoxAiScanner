@@ -16,5 +16,6 @@ public class BackgroundScannerStatusDto
     public string Universe { get; set; } = "NIFTY500";
     public bool IsWebSocketConnected { get; set; }
     public int WebSocketActiveSubscriptionsCount { get; set; }
+    public IReadOnlyCollection<string> WebSocketSubscriptions { get; set; } = Array.Empty<string>();
     public IReadOnlyList<ScanResultDto> LatestTopSignals { get; set; } = Array.Empty<ScanResultDto>();
 }

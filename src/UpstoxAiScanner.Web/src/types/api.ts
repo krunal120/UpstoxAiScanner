@@ -56,6 +56,7 @@ export interface BackgroundScannerStatusDto {
   nextScheduledScanUtc?: string;
   isWebSocketConnected?: boolean;
   webSocketActiveSubscriptionsCount?: number;
+  webSocketSubscriptions?: string[];
   trackedSubscribedSymbols?: string[];
   latestTopSignals?: ScanResultDto[];
 }
@@ -142,4 +143,32 @@ export interface MarketQuoteDto {
   prevClosePrice: number;
   yearHigh: number;
   yearLow: number;
+}
+
+export interface InstrumentSyncSummaryDto {
+  universe: string;
+  totalDownloadedFromMaster: number;
+  totalConstituentsProcessed: number;
+  matchedCount: number;
+  addedCount: number;
+  updatedCount: number;
+  unchangedCount: number;
+  unmatchedSymbols: string[];
+  timestampUtc: string;
+  message: string;
+}
+
+export interface InstrumentDto {
+  id: number;
+  symbol: string;
+  companyName: string;
+  instrumentKey: string;
+  exchange: string;
+  segment: string;
+  instrumentType: string;
+  isin?: string;
+  universe: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

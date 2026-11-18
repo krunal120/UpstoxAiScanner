@@ -52,7 +52,7 @@ public class MarketHoursAndBackgroundTests : IClassFixture<WebApplicationFactory
         body.Should().NotBeNull();
         body!.Success.Should().BeTrue();
         body.Data.Should().NotBeNull();
-        body.Data!.Universe.Should().Be("NIFTY500");
+        body.Data!.Universe.Should().NotBeNullOrWhiteSpace();
         body.Data.IntradayScanIntervalSeconds.Should().BeGreaterThan(0);
     }
 

@@ -45,7 +45,10 @@ public class TechnicalAnalysisService : ITechnicalAnalysisService
         else
         {
             instrument = await _dbContext.Instruments
-                .FirstOrDefaultAsync(i => i.Symbol == normalizedSymbol, cancellationToken);
+                .Where(i => i.Symbol == normalizedSymbol)
+                .OrderByDescending(i => i.Universe == "NIFTY500")
+                .ThenByDescending(i => i.Exchange == "NSE")
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
         if (instrument == null && !normalizedSymbol.Contains('|'))
@@ -149,10 +152,11 @@ public class TechnicalAnalysisService : ITechnicalAnalysisService
     {
         try
         {
+            var targetUtc = snapshot.Timestamp.ToUniversalTime();
             var existing = await _dbContext.TechnicalIndicators
                 .FirstOrDefaultAsync(t => t.InstrumentId == instrumentId &&
                                           t.Interval == interval &&
-                                          t.Timestamp == snapshot.Timestamp, cancellationToken);
+                                          (t.Timestamp == snapshot.Timestamp || t.Timestamp == targetUtc), cancellationToken);
 
             if (existing != null)
             {
@@ -192,6 +196,12 @@ public class TechnicalAnalysisService : ITechnicalAnalysisService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to persist technical indicator cache for instrument {Id}: {Message}", instrumentId, ex.Message);
+
+            // Detach any failed added entry so it does not poison subsequent SaveChangesAsync calls on the DbContext
+            _dbContext.ChangeTracker.Entries<TechnicalIndicator>()
+                .Where(e => e.State == EntityState.Added)
+                .ToList()
+                .ForEach(e => e.State = EntityState.Detached);
         }
     }
 
