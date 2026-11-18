@@ -56,11 +56,26 @@ UpstoxAiScanner/
   - Bundled fallback seed CSV (`ind_nifty500list.csv`) ensures zero failure even in air-gapped or network-restricted environments.
 - **Automatic Migration on Startup**: The API automatically applies EF Core migrations (`UpstoxScannerDbContext.Database.MigrateAsync()`) when started.
 
+### Phase 3: Technical Indicator Engine
+- **Wilder's RSI (14 periods)**: Smooth calculation using Wilder's method, detecting overbought (>70), oversold (<30), and crossing conditions (above/below 30, 50, 70).
+- **MACD (12, 26, 9)**: Fast/Slow EMA difference, Signal line, Histogram, bullish/bearish crossover detection, zero-line transitions, and histogram momentum acceleration.
+- **EMA Engine (20, 50, 200)**: Bullish alignment (EMA20 > EMA50 > EMA200), Bearish alignment (EMA20 < EMA50 < EMA200), price crossover events, and Golden/Death cross detection.
+- **Breakout & Breakdown Detection**: 20-period and 50-period high breakouts and low breakdowns. Strictly avoids look-ahead bias by calculating historical resistance/support strictly on completed prior candles.
+- **Volume Analytics & Surges**: 20-period baseline average volume, volume surge detection (ratio >= 1.5x), and volume confirmation for technical breakouts.
+- **Indicator Persistence**: Automatic caching of calculated indicators to the `TechnicalIndicators` table in SQL Server.
+
 ---
 
 ## 3. API Endpoints
 
-### A. Stock Universe & Instruments (`/api/instruments`)
+### A. Technical Indicators & Analytics (`/api/indicators`)
+
+| Method | Endpoint | Description | Query / Body Parameters |
+|---|---|---|---|
+| `GET` | `/api/indicators/{symbol}` | Calculates RSI, MACD, EMAs, Breakouts, and Volume | `symbol`, `interval` (`1d` or `5m`) |
+| `POST` | `/api/indicators/calculate` | Computes indicators on arbitrary OHLCV candle arrays | JSON request with candle list |
+
+### B. Stock Universe & Instruments (`/api/instruments`)
 
 | Method | Endpoint | Description | Query / Route Parameters |
 |---|---|---|---|

@@ -94,6 +94,9 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromMinutes(2);
         });
 
+        // Register Technical Indicator Analysis Service
+        services.AddScoped<ITechnicalAnalysisService, TechnicalAnalysisService>();
+
         return services;
     }
 }

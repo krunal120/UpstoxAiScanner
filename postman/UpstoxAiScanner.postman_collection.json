@@ -167,6 +167,90 @@
       ]
     },
     {
+      "name": "Technical Indicators & Analytics (/api/indicators)",
+      "item": [
+        {
+          "name": "1. Daily Technical Analysis (RSI, MACD, EMAs, Breakouts)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/indicators/RELIANCE?interval=1d",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indicators", "RELIANCE"],
+              "query": [
+                {
+                  "key": "interval",
+                  "value": "1d",
+                  "description": "Daily swing trading interval"
+                }
+              ]
+            },
+            "description": "Calculates complete daily indicators: RSI 14 (Wilder), MACD 12/26/9, EMA 20/50/200, 20/50-day breakout detection, and volume analytics."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Intraday 5m Momentum Analysis",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/indicators/RELIANCE?interval=5m",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indicators", "RELIANCE"],
+              "query": [
+                {
+                  "key": "interval",
+                  "value": "5m",
+                  "description": "5-minute intraday interval"
+                }
+              ]
+            },
+            "description": "Calculates 5-minute intraday indicators for momentum scanning, crossovers, and volume surges."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Calculate Indicators on Custom Candles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"CUSTOM_STOCK\",\n  \"interval\": \"1d\",\n  \"candles\": [\n    {\n      \"timestamp\": \"2026-03-01T00:00:00Z\",\n      \"open\": 100.0,\n      \"high\": 105.0,\n      \"low\": 98.0,\n      \"close\": 103.5,\n      \"volume\": 150000,\n      \"openInterest\": 0\n    },\n    {\n      \"timestamp\": \"2026-03-02T00:00:00Z\",\n      \"open\": 103.5,\n      \"high\": 108.0,\n      \"low\": 102.0,\n      \"close\": 107.0,\n      \"volume\": 220000,\n      \"openInterest\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/indicators/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indicators", "calculate"]
+            },
+            "description": "Computes indicators on-the-fly for any arbitrary client-supplied OHLCV candle collection."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Local API Gateway (/api/market)",
       "item": [
         {
