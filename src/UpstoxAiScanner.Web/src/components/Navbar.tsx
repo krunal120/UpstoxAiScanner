@@ -64,18 +64,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Live Market Hours & Session Pill */}
         <div className="hidden md:flex items-center gap-3">
           {marketStatus && (
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${getPhaseColor(marketStatus.phase)}`}>
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${getPhaseColor(marketStatus.sessionPhase || marketStatus.phase)}`}>
               <span className="relative flex h-2 w-2">
                 {marketStatus.isMarketOpen && (
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 )}
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus.isMarketOpen ? 'bg-emerald-500' : 'bg-slate-500'}`}></span>
               </span>
-              <span className="font-semibold uppercase tracking-wider">{marketStatus.phase}</span>
+              <span className="font-semibold uppercase tracking-wider">{marketStatus.sessionPhase || marketStatus.phase || 'Closed'}</span>
               <span className="text-slate-500">|</span>
               <span className="flex items-center gap-1 font-mono text-slate-300">
                 <Clock className="h-3.5 w-3.5" />
-                {marketStatus.currentIstTime ? new Date(marketStatus.currentIstTime).toLocaleTimeString('en-IN', { hour12: false }) : '--:--:--'} IST
+                {(marketStatus.currentTimeIst || marketStatus.currentIstTime)
+                  ? new Date(marketStatus.currentTimeIst || marketStatus.currentIstTime!).toLocaleTimeString('en-IN', { hour12: false })
+                  : '--:--:--'} IST
               </span>
             </div>
           )}

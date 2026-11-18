@@ -30,11 +30,15 @@ export interface ScanResultDto {
 
 export interface MarketSessionStatus {
   isMarketOpen: boolean;
-  phase: 'PreOpen' | 'RegularOpen' | 'PostClose' | 'Closed';
-  currentUtcTime: string;
-  currentIstTime: string;
+  sessionPhase?: 'PreOpen' | 'RegularOpen' | 'PostClose' | 'Closed' | string;
+  phase?: 'PreOpen' | 'RegularOpen' | 'PostClose' | 'Closed' | string;
+  currentTimeUtc?: string;
+  currentTimeIst?: string;
+  currentUtcTime?: string;
+  currentIstTime?: string;
   timeUntilOpen?: string;
   timeUntilClose?: string;
+  isWeekend?: boolean;
   message: string;
 }
 
@@ -42,11 +46,18 @@ export interface BackgroundScannerStatusDto {
   isEnabled: boolean;
   isMarketOpen: boolean;
   ignoreMarketHours: boolean;
-  scanIntervalMinutes: number;
+  marketSessionPhase?: string;
+  intradayScanIntervalSeconds?: number;
+  scanIntervalMinutes?: number;
   totalScansExecuted: number;
+  lastScanTimeUtc?: string;
+  nextScheduledScanTimeUtc?: string;
   lastScanUtc?: string;
   nextScheduledScanUtc?: string;
-  trackedSubscribedSymbols: string[];
+  isWebSocketConnected?: boolean;
+  webSocketActiveSubscriptionsCount?: number;
+  trackedSubscribedSymbols?: string[];
+  latestTopSignals?: ScanResultDto[];
 }
 
 export interface AiExplanationDto {

@@ -76,7 +76,7 @@ export const BackgroundStatusCard: React.FC<BackgroundStatusCardProps> = ({
                   : 'bg-slate-800 text-slate-400 border-slate-700'
               }`}
             >
-              {marketStatus?.phase || 'Closed'}
+              {marketStatus?.sessionPhase || marketStatus?.phase || 'Closed'}
             </span>
           </div>
 
@@ -84,8 +84,8 @@ export const BackgroundStatusCard: React.FC<BackgroundStatusCardProps> = ({
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400">Current IST Time:</span>
               <span className="font-mono font-bold text-slate-200">
-                {marketStatus?.currentIstTime
-                  ? new Date(marketStatus.currentIstTime).toLocaleTimeString('en-IN', { hour12: false })
+                {(marketStatus?.currentTimeIst || marketStatus?.currentIstTime)
+                  ? new Date(marketStatus.currentTimeIst || marketStatus.currentIstTime!).toLocaleTimeString('en-IN', { hour12: false })
                   : '--:--:--'}{' '}
                 IST (UTC+05:30)
               </span>
