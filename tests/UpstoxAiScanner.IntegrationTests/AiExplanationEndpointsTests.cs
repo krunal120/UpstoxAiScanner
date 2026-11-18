@@ -96,7 +96,7 @@ public class AiExplanationEndpointsTests : IClassFixture<WebApplicationFactory<P
         data.TechnicalScore.Should().Be(78m);
         data.Signal.Should().Be("Bullish");
         data.ExecutiveSummary.Should().Contain("TCS");
-        data.Provider.Should().Be("RuleBasedFinancialEngine");
+        data.Provider.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]

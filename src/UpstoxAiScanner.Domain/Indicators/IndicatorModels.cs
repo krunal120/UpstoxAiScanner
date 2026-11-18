@@ -87,15 +87,30 @@ public record VolumeAnalysis
 }
 
 /// <summary>
+/// Quantitative analysis of Average True Range (ATR) for volatility and stop-loss modeling.
+/// </summary>
+public record AtrAnalysis
+{
+    public decimal Value { get; init; }
+    public decimal AtrPercent => ClosePrice > 0 ? Math.Round((Value / ClosePrice) * 100m, 2) : 0m;
+    public decimal ClosePrice { get; init; }
+}
+
+/// <summary>
 /// Combined technical indicator snapshot for an instrument at a specific timestamp.
 /// </summary>
 public record TechnicalAnalysisSnapshot
 {
     public required DateTimeOffset Timestamp { get; init; }
     public decimal ClosePrice { get; init; }
+    public decimal? OpenPrice { get; init; }
+    public decimal? HighPrice { get; init; }
+    public decimal? LowPrice { get; init; }
+    public decimal? Atr { get; init; }
     public RsiAnalysis? Rsi { get; init; }
     public MacdAnalysis? Macd { get; init; }
     public EmaAnalysis? Ema { get; init; }
     public BreakoutAnalysis? Breakout { get; init; }
     public VolumeAnalysis? Volume { get; init; }
+    public EmaAnalysis? HigherTimeframeEma { get; init; }
 }

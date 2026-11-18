@@ -69,6 +69,10 @@ public class TechnicalAnalysisDto
     public string Interval { get; set; } = "1d";
     public DateTimeOffset Timestamp { get; set; }
     public decimal ClosePrice { get; set; }
+    public decimal? OpenPrice { get; set; }
+    public decimal? HighPrice { get; set; }
+    public decimal? LowPrice { get; set; }
+    public decimal? Atr { get; set; }
     public RsiAnalysisDto? Rsi { get; set; }
     public MacdAnalysisDto? Macd { get; set; }
     public EmaAnalysisDto? Ema { get; set; }

@@ -206,6 +206,48 @@ public static class TechnicalScoringEngine
             }
         }
 
+        // 5. Price Action Quality & Candle Spread Confluence
+        if (snapshot.OpenPrice.HasValue && snapshot.HighPrice.HasValue && snapshot.LowPrice.HasValue)
+        {
+            decimal candleRange = snapshot.HighPrice.Value - snapshot.LowPrice.Value;
+            if (candleRange > 0)
+            {
+                decimal upperWick = snapshot.HighPrice.Value - Math.Max(snapshot.OpenPrice.Value, snapshot.ClosePrice);
+                decimal lowerWick = Math.Min(snapshot.OpenPrice.Value, snapshot.ClosePrice) - snapshot.LowPrice.Value;
+
+                // Rejection Wick: Upper wick is more than 50% of candle range (sellers knocked price down)
+                if (upperWick > candleRange * 0.5m)
+                {
+                    score -= 10m;
+                    reasons.Add("Upper Rejection Wick (Supply Overhead) (-10)");
+                }
+                // Strong Close: Green candle closing in top 15% of range
+                else if (snapshot.ClosePrice > snapshot.OpenPrice.Value && (snapshot.HighPrice.Value - snapshot.ClosePrice) <= candleRange * 0.15m)
+                {
+                    score += 8m;
+                    reasons.Add("Strong Close near High (+8)");
+                }
+
+                // Bullish Pinbar / Hammer: Lower wick > 50% of range
+                if (lowerWick > candleRange * 0.5m && snapshot.ClosePrice >= snapshot.OpenPrice.Value)
+                {
+                    score += 8m;
+                    reasons.Add("Bullish Price Rejection of Lows (+8)");
+                }
+            }
+        }
+
+        // 6. Mean-Reversion Overextension Guard (Avoid buying top of rubber-band stretch)
+        if (snapshot.Ema?.Ema20.HasValue == true && snapshot.Ema.Ema20.Value > 0)
+        {
+            decimal distFromEma20 = (snapshot.ClosePrice - snapshot.Ema.Ema20.Value) / snapshot.Ema.Ema20.Value;
+            if (distFromEma20 > 0.12m)
+            {
+                score -= 10m;
+                reasons.Add($"Overextended from 20 EMA ({distFromEma20 * 100:F1}% stretch, Pullback Risk) (-10)");
+            }
+        }
+
         // Clamp final score strictly between 0 and 100
         score = Math.Clamp(score, 0m, 100m);
         string signal = CategorizeSignal(score);
@@ -372,6 +414,43 @@ public static class TechnicalScoringEngine
                 score += 10m;
                 volumeStatus = $"Volume Surge ({snapshot.Volume.VolumeRatio:F1}x)";
                 reasons.Add($"Volume Surge ({snapshot.Volume.VolumeRatio:F1}x) (+10)");
+            }
+        }
+
+        // 5. Multi-Timeframe Trend Confluence (MTF) - Align 5m with Daily Higher Timeframe
+        if (snapshot.HigherTimeframeEma != null)
+        {
+            if (snapshot.HigherTimeframeEma.IsBullishAlignment ||
+               (snapshot.HigherTimeframeEma.Ema20.HasValue && snapshot.HigherTimeframeEma.Ema50.HasValue && snapshot.HigherTimeframeEma.Ema20.Value > snapshot.HigherTimeframeEma.Ema50.Value))
+            {
+                score += 15m;
+                reasons.Add("MTF Confluence: Daily Higher Timeframe Trend is Bullish (+15)");
+            }
+            else if (snapshot.HigherTimeframeEma.IsBearishAlignment ||
+                    (snapshot.HigherTimeframeEma.Ema20.HasValue && snapshot.HigherTimeframeEma.Ema50.HasValue && snapshot.HigherTimeframeEma.Ema20.Value < snapshot.HigherTimeframeEma.Ema50.Value))
+            {
+                score -= 15m;
+                reasons.Add("MTF Warning: Counter-Trend Setup against Bearish Daily Trend (-15)");
+            }
+        }
+
+        // 6. Intraday Price Action Quality & Rejection Analysis
+        if (snapshot.OpenPrice.HasValue && snapshot.HighPrice.HasValue && snapshot.LowPrice.HasValue)
+        {
+            decimal candleRange = snapshot.HighPrice.Value - snapshot.LowPrice.Value;
+            if (candleRange > 0)
+            {
+                decimal upperWick = snapshot.HighPrice.Value - Math.Max(snapshot.OpenPrice.Value, snapshot.ClosePrice);
+                if (upperWick > candleRange * 0.5m)
+                {
+                    score -= 10m;
+                    reasons.Add("Intraday Upper Rejection Wick (Supply Overhead) (-10)");
+                }
+                else if (snapshot.ClosePrice > snapshot.OpenPrice.Value && (snapshot.HighPrice.Value - snapshot.ClosePrice) <= candleRange * 0.15m)
+                {
+                    score += 8m;
+                    reasons.Add("Intraday Momentum Close at Candle High (+8)");
+                }
             }
         }
 

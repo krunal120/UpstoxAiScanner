@@ -38,6 +38,8 @@ Thumbs.db
 
 ## User Secrets & Local Configs
 appsettings.Local.json
+appsettings.*.Local.json
+*.Local.json
 
 ## Frontend / Node.js
 node_modules/

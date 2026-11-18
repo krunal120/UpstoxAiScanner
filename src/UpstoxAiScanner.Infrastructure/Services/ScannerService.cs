@@ -15,17 +15,20 @@ public class ScannerService : IScannerService
 {
     private readonly UpstoxScannerDbContext _dbContext;
     private readonly ITechnicalAnalysisService _technicalAnalysisService;
+    private readonly IUpstoxMarketDataService _marketDataService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ScannerService> _logger;
 
     public ScannerService(
         UpstoxScannerDbContext dbContext,
         ITechnicalAnalysisService technicalAnalysisService,
+        IUpstoxMarketDataService marketDataService,
         IServiceScopeFactory scopeFactory,
         ILogger<ScannerService> logger)
     {
         _dbContext = dbContext;
         _technicalAnalysisService = technicalAnalysisService;
+        _marketDataService = marketDataService;
         _scopeFactory = scopeFactory;
         _logger = logger;
     }
@@ -40,7 +43,7 @@ public class ScannerService : IScannerService
         string normalizedScanType = isIntraday ? "Intraday" : "Swing";
         string interval = isIntraday ? "5m" : "1d";
 
-        _logger.LogInformation("Starting {ScanType} scan for universe {Universe}", normalizedScanType, universe);
+        _logger.LogInformation("Starting 2-Stage {ScanType} scan for universe {Universe}", normalizedScanType, universe);
 
         // Fetch active universe instruments
         var query = _dbContext.Instruments.Where(i => i.IsActive);
@@ -61,33 +64,116 @@ public class ScannerService : IScannerService
             }
         }
 
-        int scanBatchSize = Math.Clamp(limit > 0 ? limit * 2 : 50, 20, 100);
-
-        var instruments = await query
+        var allUniverseInstruments = await query
             .OrderByDescending(i => i.Universe == "NIFTY500")
             .ThenByDescending(i => i.Exchange == "NSE")
-            .ThenBy(i => i.Symbol)
-            .Take(scanBatchSize)
+            .ThenBy(i => i.UpdatedAt)
             .ToListAsync(cancellationToken);
 
-        if (instruments.Count == 0)
+        if (allUniverseInstruments.Count == 0)
         {
             _logger.LogWarning("No active instruments found for universe {Universe} in database", universe);
             return Array.Empty<ScanResultDto>();
         }
 
+        List<Instrument> instrumentsToAnalyze;
+        int targetDeepBatch = Math.Clamp(limit > 0 ? limit * 2 : 50, 30, 80);
+
+        // Stage 1: Ultra-fast multi-quote pre-screening for universes larger than the batch limit
+        if (allUniverseInstruments.Count > targetDeepBatch)
+        {
+            var shortlisted = new List<Instrument>();
+
+            try
+            {
+                // Sample broad candidate pool across NIFTY500, top liquid equities, and rolling round-robin
+                var candidatePool = allUniverseInstruments.Take(300).ToList();
+                var quoteKeys = candidatePool.Select(c => c.InstrumentKey).ToList();
+                var quoteMap = new Dictionary<string, UpstoxAiScanner.Application.DTOs.MarketData.MarketQuoteDto>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var chunk in quoteKeys.Chunk(100))
+                {
+                    var quotesResp = await _marketDataService.GetMarketQuotesAsync(chunk, cancellationToken);
+                    if (quotesResp.Success && quotesResp.Data != null)
+                    {
+                        foreach (var kvp in quotesResp.Data)
+                        {
+                            quoteMap[kvp.Key] = kvp.Value;
+                        }
+                    }
+                }
+
+                if (quoteMap.Count > 0)
+                {
+                    // Rank by Momentum, Volume surge & Proximity to Day High
+                    var scoredMovers = candidatePool
+                        .Select(inst =>
+                        {
+                            quoteMap.TryGetValue(inst.InstrumentKey, out var q);
+                            if (q == null) quoteMap.TryGetValue(inst.Symbol, out q);
+
+                            decimal preScore = 0m;
+                            if (q != null)
+                            {
+                                // Filter out dead or illiquid penny stocks
+                                if (q.Volume < 500 || q.LastPrice < 5m)
+                                {
+                                    preScore = -100m;
+                                }
+                                else
+                                {
+                                    preScore = Math.Abs(q.PercentageChange) * 2.5m +
+                                               (q.Volume > 25000 ? 10m : 0m) +
+                                               (q.High > 0 && q.LastPrice >= q.High * 0.98m ? 15m : 0m) +
+                                               (q.YearHigh > 0 && q.LastPrice >= q.YearHigh * 0.95m ? 10m : 0m);
+                                }
+                            }
+                            return new { Instrument = inst, Score = preScore };
+                        })
+                        .Where(x => x.Score > -50m)
+                        .OrderByDescending(x => x.Score)
+                        .Select(x => x.Instrument)
+                        .Take(targetDeepBatch - 10)
+                        .ToList();
+
+                    shortlisted.AddRange(scoredMovers);
+
+                    // Add 10 rolling round-robin stocks (oldest UpdatedAt) to guarantee 100% full-universe coverage
+                    var roundRobin = allUniverseInstruments
+                        .Where(i => !shortlisted.Any(s => s.Id == i.Id))
+                        .OrderBy(i => i.UpdatedAt)
+                        .Take(10);
+
+                    shortlisted.AddRange(roundRobin);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Stage 1 Multi-quote pre-screening failed, falling back to rolling batch: {Message}", ex.Message);
+            }
+
+            instrumentsToAnalyze = shortlisted.Count >= 10
+                ? shortlisted
+                : allUniverseInstruments.Take(targetDeepBatch).ToList();
+        }
+        else
+        {
+            instrumentsToAnalyze = allUniverseInstruments;
+        }
+
         var scannedResults = new List<ScanResultDto>();
         var entitiesToPersist = new List<ScanResult>();
 
-        // Controlled concurrency to stay well within Upstox rate limits
+        // Stage 2: Deep multi-indicator technical analysis with controlled concurrency
         var semaphore = new SemaphoreSlim(5, 5);
-        var tasks = instruments.Select(async instrument =>
+        var tasks = instrumentsToAnalyze.Select(async instrument =>
         {
             await semaphore.WaitAsync(cancellationToken);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var scopedTaService = scope.ServiceProvider.GetRequiredService<ITechnicalAnalysisService>();
+                var scopedDbContext = scope.ServiceProvider.GetRequiredService<UpstoxScannerDbContext>();
 
                 var analysis = await scopedTaService.AnalyzeInstrumentAsync(
                     instrument.Symbol,
@@ -98,9 +184,43 @@ public class ScannerService : IScannerService
                     return;
 
                 var snapshot = MapToSnapshot(analysis);
+
+                // Multi-Timeframe Trend Confluence (MTF): Align 5m Intraday with Daily Trend
+                if (isIntraday)
+                {
+                    var dailyIndicator = await scopedDbContext.TechnicalIndicators
+                        .AsNoTracking()
+                        .Where(t => t.InstrumentId == instrument.Id && t.Interval == "1d")
+                        .OrderByDescending(t => t.Timestamp)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (dailyIndicator != null && dailyIndicator.EMA20.HasValue && dailyIndicator.EMA50.HasValue)
+                    {
+                        snapshot = snapshot with
+                        {
+                            HigherTimeframeEma = new EmaAnalysis
+                            {
+                                Ema20 = dailyIndicator.EMA20,
+                                Ema50 = dailyIndicator.EMA50,
+                                Ema200 = dailyIndicator.EMA200,
+                                IsPriceAboveEma20 = snapshot.ClosePrice > (dailyIndicator.EMA20 ?? 0),
+                                IsPriceAboveEma50 = snapshot.ClosePrice > (dailyIndicator.EMA50 ?? 0)
+                            }
+                        };
+                    }
+                }
+
                 var scoreResult = isIntraday
                     ? TechnicalScoringEngine.ScoreIntraday(snapshot)
                     : TechnicalScoringEngine.ScoreSwing(snapshot);
+
+                // Update instrument UpdatedAt timestamp for round-robin scheduling
+                var instToUpdate = await scopedDbContext.Instruments.FindAsync(new object[] { instrument.Id }, cancellationToken);
+                if (instToUpdate != null)
+                {
+                    instToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
+                    await scopedDbContext.SaveChangesAsync(cancellationToken);
+                }
 
                 var dto = new ScanResultDto
                 {
@@ -262,17 +382,43 @@ public class ScannerService : IScannerService
         if (analysis == null)
             return null;
 
-        var snapshot = MapToSnapshot(analysis);
-        var scoreResult = isIntraday
-            ? TechnicalScoringEngine.ScoreIntraday(snapshot)
-            : TechnicalScoringEngine.ScoreSwing(snapshot);
-
         var instrument = await _dbContext.Instruments
             .AsNoTracking()
             .Where(i => i.Symbol == analysis.Symbol || i.InstrumentKey == analysis.InstrumentKey)
             .OrderByDescending(i => i.Universe == "NIFTY500")
             .ThenByDescending(i => i.Exchange == "NSE")
             .FirstOrDefaultAsync(cancellationToken);
+
+        var snapshot = MapToSnapshot(analysis);
+
+        // MTF Confluence for single stock inspection
+        if (isIntraday && instrument != null)
+        {
+            var dailyIndicator = await _dbContext.TechnicalIndicators
+                .AsNoTracking()
+                .Where(t => t.InstrumentId == instrument.Id && t.Interval == "1d")
+                .OrderByDescending(t => t.Timestamp)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (dailyIndicator != null && dailyIndicator.EMA20.HasValue && dailyIndicator.EMA50.HasValue)
+            {
+                snapshot = snapshot with
+                {
+                    HigherTimeframeEma = new EmaAnalysis
+                    {
+                        Ema20 = dailyIndicator.EMA20,
+                        Ema50 = dailyIndicator.EMA50,
+                        Ema200 = dailyIndicator.EMA200,
+                        IsPriceAboveEma20 = snapshot.ClosePrice > (dailyIndicator.EMA20 ?? 0),
+                        IsPriceAboveEma50 = snapshot.ClosePrice > (dailyIndicator.EMA50 ?? 0)
+                    }
+                };
+            }
+        }
+
+        var scoreResult = isIntraday
+            ? TechnicalScoringEngine.ScoreIntraday(snapshot)
+            : TechnicalScoringEngine.ScoreSwing(snapshot);
 
         var dto = new ScanResultDto
         {
@@ -324,6 +470,10 @@ public class ScannerService : IScannerService
         {
             Timestamp = dto.Timestamp,
             ClosePrice = dto.ClosePrice,
+            OpenPrice = dto.OpenPrice,
+            HighPrice = dto.HighPrice,
+            LowPrice = dto.LowPrice,
+            Atr = dto.Atr,
             Rsi = dto.Rsi == null ? null : new RsiAnalysis
             {
                 Value = dto.Rsi.Value,

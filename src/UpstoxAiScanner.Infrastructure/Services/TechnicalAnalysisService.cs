@@ -219,6 +219,10 @@ public class TechnicalAnalysisService : ITechnicalAnalysisService
             Interval = interval,
             Timestamp = snapshot.Timestamp,
             ClosePrice = snapshot.ClosePrice,
+            OpenPrice = snapshot.OpenPrice,
+            HighPrice = snapshot.HighPrice,
+            LowPrice = snapshot.LowPrice,
+            Atr = snapshot.Atr,
             Rsi = snapshot.Rsi == null ? null : new RsiAnalysisDto
             {
                 Value = snapshot.Rsi.Value,

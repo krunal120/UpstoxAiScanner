@@ -120,15 +120,30 @@ public static class DependencyInjection
         // Configure AI Explanation options with environment variable fallback
         services.Configure<AiOptions>(options =>
         {
-            configuration.GetSection(AiOptions.SectionName).Bind(options);
+            if (configuration.GetSection(AiOptions.SectionName).Exists())
+            {
+                configuration.GetSection(AiOptions.SectionName).Bind(options);
+            }
+            else if (configuration.GetSection("Gemini").Exists())
+            {
+                configuration.GetSection("Gemini").Bind(options);
+            }
+            else if (configuration.GetSection("OpenAI").Exists())
+            {
+                configuration.GetSection("OpenAI").Bind(options);
+            }
 
             if (string.IsNullOrWhiteSpace(options.ApiKey))
             {
-                var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                if (!string.IsNullOrWhiteSpace(envKey))
-                {
-                    options.ApiKey = envKey;
-                }
+                options.ApiKey = configuration["GEMINI_API_KEY"]
+                              ?? configuration["Ai:ApiKey"]
+                              ?? configuration["Gemini:ApiKey"]
+                              ?? configuration["OPENAI_API_KEY"]
+                              ?? configuration["OpenAI:ApiKey"]
+                              ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+                              ?? Environment.GetEnvironmentVariable("Gemini__ApiKey")
+                              ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+                              ?? Environment.GetEnvironmentVariable("OpenAI__ApiKey");
             }
         });
 

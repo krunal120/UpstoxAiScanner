@@ -2,26 +2,31 @@ namespace UpstoxAiScanner.Application.Configuration;
 
 /// <summary>
 /// Configuration options for the AI Technical Explanation Service.
-/// Prepares integration with OpenAI API while keeping technical calculations 100% independent.
+/// Supports Google Gemini (Pro / Flash) and OpenAI with seamless fallback to deterministic financial engine.
 /// </summary>
 public class AiOptions
 {
-    public const string SectionName = "OpenAI";
+    public const string SectionName = "Ai";
 
     /// <summary>
-    /// OpenAI API key. Stored in .NET User Secrets or environment variables (OPENAI_API_KEY).
+    /// AI Provider: "Gemini" (recommended) or "OpenAI".
+    /// </summary>
+    public string Provider { get; set; } = "Gemini";
+
+    /// <summary>
+    /// API key for Gemini or OpenAI.
     /// </summary>
     public string? ApiKey { get; set; }
 
     /// <summary>
-    /// Base URL for OpenAI API (default: https://api.openai.com/v1).
+    /// Base URL for API (e.g. https://generativelanguage.googleapis.com/v1beta or https://api.openai.com/v1).
     /// </summary>
-    public string BaseUrl { get; set; } = "https://api.openai.com/v1";
+    public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 
     /// <summary>
-    /// LLM model name (default: "gpt-4o-mini").
+    /// LLM model name (e.g. "gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-1.5-pro", "gpt-4o-mini").
     /// </summary>
-    public string Model { get; set; } = "gpt-4o-mini";
+    public string Model { get; set; } = "gemini-flash-lite-latest";
 
     /// <summary>
     /// Request timeout in seconds.
@@ -39,7 +44,7 @@ public class AiOptions
     public bool EnableAiExplanations { get; set; } = true;
 
     /// <summary>
-    /// Evaluates if live OpenAI API is configured.
+    /// Evaluates if live AI API is configured.
     /// </summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
 }

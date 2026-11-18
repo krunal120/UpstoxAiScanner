@@ -28,6 +28,10 @@ public static class TechnicalIndicatorEngine
         {
             Timestamp = latest.Timestamp,
             ClosePrice = latest.Close,
+            OpenPrice = latest.Open,
+            HighPrice = latest.High,
+            LowPrice = latest.Low,
+            Atr = AtrCalculator.Analyze(candles)?.Value,
             Rsi = RsiCalculator.Analyze(candles, rsiPeriod),
             Macd = MacdCalculator.Analyze(candles),
             Ema = EmaCalculator.Analyze(candles),

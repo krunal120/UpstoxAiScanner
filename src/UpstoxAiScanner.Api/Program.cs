@@ -7,6 +7,9 @@ using UpstoxAiScanner.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load optional local uncommitted settings (API keys, secrets)
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // Add Controllers with JSON options
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
