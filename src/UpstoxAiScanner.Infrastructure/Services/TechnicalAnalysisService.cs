@@ -152,11 +152,12 @@ public class TechnicalAnalysisService : ITechnicalAnalysisService
     {
         try
         {
-            var targetUtc = snapshot.Timestamp.ToUniversalTime();
+            var snapshotTimestamp = snapshot.Timestamp;
+            var targetUtc = snapshotTimestamp.ToUniversalTime();
             var existing = await _dbContext.TechnicalIndicators
                 .FirstOrDefaultAsync(t => t.InstrumentId == instrumentId &&
                                           t.Interval == interval &&
-                                          (t.Timestamp == snapshot.Timestamp || t.Timestamp == targetUtc), cancellationToken);
+                                          (t.Timestamp == snapshotTimestamp || t.Timestamp == targetUtc), cancellationToken);
 
             if (existing != null)
             {

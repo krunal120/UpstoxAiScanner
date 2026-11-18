@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using UpstoxAiScanner.Application.DTOs.Scanner;
 using UpstoxAiScanner.Application.DTOs.TechnicalAnalysis;
@@ -14,15 +15,18 @@ public class ScannerService : IScannerService
 {
     private readonly UpstoxScannerDbContext _dbContext;
     private readonly ITechnicalAnalysisService _technicalAnalysisService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ScannerService> _logger;
 
     public ScannerService(
         UpstoxScannerDbContext dbContext,
         ITechnicalAnalysisService technicalAnalysisService,
+        IServiceScopeFactory scopeFactory,
         ILogger<ScannerService> logger)
     {
         _dbContext = dbContext;
         _technicalAnalysisService = technicalAnalysisService;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -82,7 +86,10 @@ public class ScannerService : IScannerService
             await semaphore.WaitAsync(cancellationToken);
             try
             {
-                var analysis = await _technicalAnalysisService.AnalyzeInstrumentAsync(
+                using var scope = _scopeFactory.CreateScope();
+                var scopedTaService = scope.ServiceProvider.GetRequiredService<ITechnicalAnalysisService>();
+
+                var analysis = await scopedTaService.AnalyzeInstrumentAsync(
                     instrument.Symbol,
                     interval,
                     cancellationToken);
