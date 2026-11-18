@@ -64,11 +64,33 @@ UpstoxAiScanner/
 - **Volume Analytics & Surges**: 20-period baseline average volume, volume surge detection (ratio >= 1.5x), and volume confirmation for technical breakouts.
 - **Indicator Persistence**: Automatic caching of calculated indicators to the `TechnicalIndicators` table in SQL Server.
 
+### Phase 4: Trading Scanner Strategies & Scoring Engine
+- **Technical Scoring Engine (0 to 100)**: Quantitative rule-based system scoring setups across Trend/EMA alignment (+/-30), Momentum/MACD (+/-30), RSI conditions (+/-20), and Breakouts/Volume surges (+/-25).
+- **Signal Classifications**:
+  - `Strong Bullish`: Score $\ge 80$
+  - `Bullish`: Score $60 - 79$
+  - `Neutral`: Score $40 - 59$
+  - `Bearish`: Score $20 - 39$
+  - `Strong Bearish`: Score $< 20$
+- **Daily Swing Scanner (`/api/scanner/swing`)**: Scans Nifty 500 stocks for multi-day swing opportunities (EMA 20/50/200 bullish alignment, 20/50-day high breakouts, MACD bullish crossovers, RSI oversold recoveries).
+- **Intraday Scanner (`/api/scanner/intraday`)**: Scans 5-minute candles for intraday momentum breakouts, fast EMA trends, volume surges ($\ge 2.0\times$), and MACD crossovers.
+- **Persistence & History**: Scanned results and score explanations are automatically persisted into SQL Server `ScanResults` table.
+
 ---
 
 ## 3. API Endpoints
 
-### A. Technical Indicators & Analytics (`/api/indicators`)
+### A. Trading Scanners & Technical Scoring (`/api/scanner`)
+
+| Method | Endpoint | Description | Query Parameters |
+|---|---|---|---|
+| `GET` | `/api/scanner/swing` | Ranked daily swing trading opportunities | `universe`, `signal`, `minScore`, `maxScore`, `limit` |
+| `GET` | `/api/scanner/intraday` | Ranked 5-minute intraday momentum opportunities | `universe`, `signal`, `minScore`, `maxScore`, `limit` |
+| `GET` | `/api/scanner/stock/{symbol}` | Evaluates single stock on-demand with score breakdown | `symbol`, `scanType` (`Swing`/`Intraday`) |
+| `POST` | `/api/scanner/run` | Triggers universe scan and persists to SQL Server | `scanType`, `universe`, `limit` |
+| `GET` | `/api/scanner/history` | Retrieves historical scan results from database | `scanType`, `universe`, `signal`, `limit` |
+
+### B. Technical Indicators & Analytics (`/api/indicators`)
 
 | Method | Endpoint | Description | Query / Body Parameters |
 |---|---|---|---|

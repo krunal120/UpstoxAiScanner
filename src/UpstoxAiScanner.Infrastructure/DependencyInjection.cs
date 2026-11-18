@@ -97,6 +97,9 @@ public static class DependencyInjection
         // Register Technical Indicator Analysis Service
         services.AddScoped<ITechnicalAnalysisService, TechnicalAnalysisService>();
 
+        // Register Scanner Service
+        services.AddScoped<IScannerService, ScannerService>();
+
         return services;
     }
 }

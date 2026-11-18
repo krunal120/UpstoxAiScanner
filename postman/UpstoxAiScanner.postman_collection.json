@@ -34,6 +34,156 @@
   ],
   "item": [
     {
+      "name": "Trading Scanners & Technical Scoring (/api/scanner)",
+      "item": [
+        {
+          "name": "1. Ranked Daily Swing Opportunities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/swing?universe=NIFTY500&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "swing"],
+              "query": [
+                {
+                  "key": "universe",
+                  "value": "NIFTY500"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Scans Nifty 500 stocks for daily swing opportunities using EMA alignment, 20/50-day breakouts, MACD, and RSI oversold recovery, ranked by technical score (0-100)."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Ranked 5m Intraday Momentum Opportunities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/intraday?universe=NIFTY500&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "intraday"],
+              "query": [
+                {
+                  "key": "universe",
+                  "value": "NIFTY500"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Scans stocks on 5-minute candles for intraday momentum, fast EMA trend, MACD crossovers, and volume surges."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Single Stock Scan & Technical Score",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/stock/RELIANCE?scanType=Swing",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "stock", "RELIANCE"],
+              "query": [
+                {
+                  "key": "scanType",
+                  "value": "Swing"
+                }
+              ]
+            },
+            "description": "Evaluates a single stock on-demand and returns its technical score (0-100), classification, and rule-based explanation."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Trigger On-Demand Universe Scan & Persist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/run?scanType=Swing&universe=NIFTY500&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "run"],
+              "query": [
+                {
+                  "key": "scanType",
+                  "value": "Swing"
+                },
+                {
+                  "key": "universe",
+                  "value": "NIFTY500"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Runs a batch scan across the universe and saves all scored results to SQL Server."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Query Historical Scan Results",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/history?scanType=Swing&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "history"],
+              "query": [
+                {
+                  "key": "scanType",
+                  "value": "Swing"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Retrieves persisted historical scan results from SQL Server with optional signal and score filters."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Stock Universe & Instruments (/api/instruments)",
       "item": [
         {
