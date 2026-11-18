@@ -38,3 +38,12 @@ Thumbs.db
 
 ## User Secrets & Local Configs
 appsettings.Local.json
+
+## Frontend / Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+src/UpstoxAiScanner.Web/dist/
+src/UpstoxAiScanner.Web/.vite/

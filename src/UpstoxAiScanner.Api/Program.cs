@@ -121,16 +121,19 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Redirect root to /swagger for convenience
-app.MapGet("/", () => Results.Redirect("/swagger"));
-
 app.UseCors("AllowAll");
 
 app.UseRouting();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Fallback to React SPA index.html for non-API client routes
+app.MapFallbackToFile("index.html");
 
 // Apply database migrations on startup
 using (var scope = app.Services.CreateScope())

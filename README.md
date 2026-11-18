@@ -100,6 +100,17 @@ UpstoxAiScanner/
   - `GET /api/scanner/stock/{symbol}/ai-explain`: Scans any tracked stock on-demand and returns a complete AI narrative.
   - `POST /api/scanner/ai-explain`: Explains any pre-computed `ScanResultDto` payload.
 
+### Phase 7: Modern Institutional Web Dashboard (React + TypeScript + Tailwind CSS)
+- **Institutional Market Intelligence UI**:
+  - Dark-mode financial dashboard tailored for active Indian stock market participants.
+  - **Daily Swing Trading Scanner View**: Real-time table ranked 0–100 by EMA trend alignment, resistance breakouts, MACD momentum, and volume surge with dynamic filtering.
+  - **5-Minute Intraday Momentum Scanner View**: 5-minute candle scanning with fast EMA slopes and volume confirmation.
+  - **Stock Deep-Dive & Grounded AI Intelligence**: Search any stock symbol, view technical gauges (0–100), detailed indicators (EMA 20/50/200, MACD, Wilder's RSI, Volume Surge ratio), dynamic support/resistance levels, interactive price trend charts, and institutional narrative reports.
+  - **Market Hours & Background Scanner Control Center**: Real-time Indian exchange trading session tracker (PreOpen, RegularOpen 09:15–15:30 IST, PostClose, Closed) with IST clock countdowns, background scanner telemetry, 24/7 testing mode toggle, and live WebSocket streaming channels.
+- **Unified Hosting**:
+  - Automatically served directly by ASP.NET Core at root `http://localhost:5000/` or `https://localhost:7109/`.
+  - Can also be run independently with instant Hot-Module-Reloading (HMR) at `http://localhost:3000/` via Vite dev server.
+
 ---
 
 ## 3. API Endpoints
@@ -182,27 +193,35 @@ dotnet dotnet-ef migrations add <MigrationName> --project src/UpstoxAiScanner.In
 
 ## 5. How to Run the Application
 
-### Option 1: Run with Visual Studio
+### Option 1: Full-Stack Web Dashboard + API (Single Command)
+```bash
+dotnet run --project src/UpstoxAiScanner.Api
+```
+- Open **Web Dashboard**: `http://localhost:5000` or `https://localhost:7109`
+- Open **Swagger UI**: `http://localhost:5000/swagger` or `https://localhost:7109/swagger`
+
+### Option 2: Run Frontend in Independent Dev Mode (Instant HMR)
+```bash
+cd src/UpstoxAiScanner.Web
+npm install
+npm run dev
+```
+- Opens frontend at `http://localhost:3000` with automated proxying of `/api` to the backend.
+
+### Option 3: Run with Visual Studio
 1. Open `UpstoxAiScanner.sln` in Visual Studio 2022.
 2. Set `UpstoxAiScanner.Api` as the **Startup Project**.
 3. Press **F5** or click **Start Debugging**.
-4. Swagger UI will open automatically at:
-   `https://localhost:7109/swagger` or `http://localhost:5000/swagger`
-
-### Option 2: Run via .NET CLI
-```bash
-dotnet build UpstoxAiScanner.sln
-dotnet run --project src/UpstoxAiScanner.Api
-```
+4. The Web Dashboard opens automatically at `https://localhost:7109/`.
 
 ---
 
 ## 6. Running Tests
 
-Execute all 77 unit and integration tests (100% passing):
+Execute all 79 unit and integration tests (100% passing):
 
 ```bash
 dotnet test UpstoxAiScanner.sln
 ```
 
-All integration tests run against LocalDB with real EF migrations and verify live/mock Upstox responses.
+All integration tests run against LocalDB with real EF migrations and verify live/mock Upstox responses, background telemetry, AI commentary, and SPA routing.
