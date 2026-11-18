@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using UpstoxAiScanner.Application.Interfaces;
 using UpstoxAiScanner.Infrastructure;
 using UpstoxAiScanner.Infrastructure.Data;
 
@@ -135,10 +136,11 @@ app.MapControllers();
 // Fallback to React SPA index.html for non-API client routes
 app.MapFallbackToFile("index.html");
 
-// Apply database migrations on startup
+// Apply database migrations on startup and seed Nifty 500 universe if empty
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
         var db = services.GetRequiredService<UpstoxScannerDbContext>();
@@ -146,11 +148,19 @@ using (var scope = app.Services.CreateScope())
         {
             await db.Database.MigrateAsync();
         }
+
+        // Automatically seed Nifty 500 constituents if Instruments table is empty
+        if (!await db.Instruments.AnyAsync())
+        {
+            logger.LogInformation("Instruments table is empty. Automatically synchronizing Nifty 500 universe...");
+            var instrumentService = services.GetRequiredService<IInstrumentService>();
+            await instrumentService.SyncUniverseInstrumentsAsync("NIFTY500");
+            logger.LogInformation("Nifty 500 universe successfully synchronized.");
+        }
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while applying database migrations.");
+        logger.LogError(ex, "An error occurred while applying database migrations or seeding universe.");
     }
 }
 
