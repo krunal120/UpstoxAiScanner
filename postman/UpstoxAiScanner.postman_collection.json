@@ -1,0 +1,454 @@
+{
+  "info": {
+    "_postman_id": "7f9a1e80-d2b4-4e31-89a3-5c2f9d9e0001",
+    "name": "Upstox AI Stock Scanner API",
+    "description": "Postman Collection for Upstox AI Stock Scanner Phase 1: Upstox Market Data API Integration & Local API Gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "upstoxBaseUrl",
+      "value": "https://api.upstox.com",
+      "type": "string"
+    },
+    {
+      "key": "upstoxAccessToken",
+      "value": "YOUR_UPSTOX_ACCESS_TOKEN",
+      "type": "string"
+    },
+    {
+      "key": "sampleInstrument",
+      "value": "NSE_EQ|INE002A01018",
+      "type": "string"
+    },
+    {
+      "key": "sampleMultiInstruments",
+      "value": "NSE_EQ|INE002A01018,NSE_EQ|INE467B01029",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Stock Universe & Instruments (/api/instruments)",
+      "item": [
+        {
+          "name": "1. Sync Nifty 500 Instruments Master",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/instruments/sync?universe=NIFTY500",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "instruments", "sync"],
+              "query": [
+                {
+                  "key": "universe",
+                  "value": "NIFTY500",
+                  "description": "Universe name (e.g. NIFTY500)"
+                }
+              ]
+            },
+            "description": "Downloads official Upstox NSE compressed instrument master, matches with Nifty 500 constituents, and upserts into SQL Server."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Paginated Instruments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/instruments?universe=NIFTY500&page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "instruments"],
+              "query": [
+                {
+                  "key": "universe",
+                  "value": "NIFTY500"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Retrieves paginated list of instruments filtered by universe and active status."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Search Instruments by Query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/instruments?query=RELIANCE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "instruments"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "RELIANCE"
+                }
+              ]
+            },
+            "description": "Searches instruments matching symbol or company name."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Instrument by Symbol",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/instruments/RELIANCE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "instruments", "RELIANCE"]
+            },
+            "description": "Retrieves single instrument details by trading symbol."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Toggle Instrument Active Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/instruments/RELIANCE/status?isActive=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "instruments", "RELIANCE", "status"],
+              "query": [
+                {
+                  "key": "isActive",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Enables or disables an instrument for automated scanning."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Local API Gateway (/api/market)",
+      "item": [
+        {
+          "name": "1. Check Service Status & Mode",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "status"]
+            },
+            "description": "Verifies whether the API is operating in Live Upstox mode or Mock fallback mode."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Full Market Quotes (V3)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/quotes?instrumentKeys={{sampleMultiInstruments}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "quotes"],
+              "query": [
+                {
+                  "key": "instrumentKeys",
+                  "value": "{{sampleMultiInstruments}}",
+                  "description": "Comma-separated instrument keys"
+                }
+              ]
+            },
+            "description": "Fetches complete market quotes including OHLC, depth, volume, and session metrics for multiple symbols."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Last Traded Price (LTP)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/ltp?instrumentKeys={{sampleMultiInstruments}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "ltp"],
+              "query": [
+                {
+                  "key": "instrumentKeys",
+                  "value": "{{sampleMultiInstruments}}"
+                }
+              ]
+            },
+            "description": "Retrieves real-time LTP, volume, and day price change for multiple instruments."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get OHLC Quotes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/ohlc?instrumentKeys={{sampleMultiInstruments}}&interval=1d",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "ohlc"],
+              "query": [
+                {
+                  "key": "instrumentKeys",
+                  "value": "{{sampleMultiInstruments}}"
+                },
+                {
+                  "key": "interval",
+                  "value": "1d",
+                  "description": "Candle interval: 1d, I1, I30"
+                }
+              ]
+            },
+            "description": "Retrieves current OHLC and previous session OHLC for multiple instruments."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Get Historical Daily Candles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/historical?instrumentKey={{sampleInstrument}}&unit=days&interval=1&toDate=2026-03-31&fromDate=2026-01-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "historical"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "{{sampleInstrument}}"
+                },
+                {
+                  "key": "unit",
+                  "value": "days"
+                },
+                {
+                  "key": "interval",
+                  "value": "1"
+                },
+                {
+                  "key": "toDate",
+                  "value": "2026-03-31"
+                },
+                {
+                  "key": "fromDate",
+                  "value": "2026-01-01"
+                }
+              ]
+            },
+            "description": "Retrieves historical daily candles for swing indicator calculations (RSI, MACD, EMA)."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Get Intraday 5-Min Candles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/intraday?instrumentKey={{sampleInstrument}}&unit=minutes&interval=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "intraday"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "{{sampleInstrument}}"
+                },
+                {
+                  "key": "unit",
+                  "value": "minutes"
+                },
+                {
+                  "key": "interval",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Retrieves intraday minute candles for intraday momentum, RSI, and breakout scanning."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Direct Upstox V3 Endpoints (Reference)",
+      "item": [
+        {
+          "name": "Upstox Direct - Full Market Quotes V3",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{upstoxAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{upstoxBaseUrl}}/v3/market-quote/quotes?instrument_key={{sampleMultiInstruments}}",
+              "host": ["{{upstoxBaseUrl}}"],
+              "path": ["v3", "market-quote", "quotes"],
+              "query": [
+                {
+                  "key": "instrument_key",
+                  "value": "{{sampleMultiInstruments}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upstox Direct - LTP V3",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{upstoxAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{upstoxBaseUrl}}/v3/market-quote/ltp?instrument_key={{sampleMultiInstruments}}",
+              "host": ["{{upstoxBaseUrl}}"],
+              "path": ["v3", "market-quote", "ltp"],
+              "query": [
+                {
+                  "key": "instrument_key",
+                  "value": "{{sampleMultiInstruments}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upstox Direct - Historical Daily Candles V3",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{upstoxAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{upstoxBaseUrl}}/v3/historical-candle/{{sampleInstrument}}/days/1/2026-03-31/2026-01-01",
+              "host": ["{{upstoxBaseUrl}}"],
+              "path": ["v3", "historical-candle", "{{sampleInstrument}}", "days", "1", "2026-03-31", "2026-01-01"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upstox Direct - Intraday 5m Candles V3",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{upstoxAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{upstoxBaseUrl}}/v3/historical-candle/intraday/{{sampleInstrument}}/minutes/5",
+              "host": ["{{upstoxBaseUrl}}"],
+              "path": ["v3", "historical-candle", "intraday", "{{sampleInstrument}}", "minutes", "5"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
