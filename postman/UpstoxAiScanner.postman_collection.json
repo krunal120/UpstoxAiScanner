@@ -180,6 +180,142 @@
             "description": "Retrieves persisted historical scan results from SQL Server with optional signal and score filters."
           },
           "response": []
+        },
+        {
+          "name": "6. Check Indian Market Hours & Session Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/market-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "market-status"]
+            },
+            "description": "Returns Indian stock market session phase (PreOpen, RegularOpen 09:15-15:30 IST, PostClose, Closed) and countdowns to open/close."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Background Scanner Telemetry & Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/background/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "background", "status"]
+            },
+            "description": "Returns telemetry from the hosted background scanning service including total scans executed, next scheduled run, and top detected signals."
+          },
+          "response": []
+        },
+        {
+          "name": "8. Toggle Background Scanner On/Off",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/background/toggle?enabled=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "background", "toggle"],
+              "query": [
+                {
+                  "key": "enabled",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Enables or pauses the automated background scanning loop."
+          },
+          "response": []
+        },
+        {
+          "name": "9. Override Market Hours (Testing Mode)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/background/ignore-market-hours?ignore=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "background", "ignore-market-hours"],
+              "query": [
+                {
+                  "key": "ignore",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Allows background scans to run continuously outside regular market hours for demo/testing."
+          },
+          "response": []
+        },
+        {
+          "name": "10. View Active WebSocket Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/websocket/subscriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "websocket", "subscriptions"]
+            },
+            "description": "Lists all instrument keys currently being streamed in real-time over the Upstox Market Data WebSocket V3 feed."
+          },
+          "response": []
+        },
+        {
+          "name": "11. Subscribe to Live WebSocket Feed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scanner/websocket/subscribe?instrumentKeys=NSE_EQ|INE002A01018,NSE_EQ|INE467B01029&mode=full",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scanner", "websocket", "subscribe"],
+              "query": [
+                {
+                  "key": "instrumentKeys",
+                  "value": "NSE_EQ|INE002A01018,NSE_EQ|INE467B01029"
+                },
+                {
+                  "key": "mode",
+                  "value": "full"
+                }
+              ]
+            },
+            "description": "Subscribes instrument keys to the WebSocket feed for real-time price & volume ticks."
+          },
+          "response": []
         }
       ]
     },

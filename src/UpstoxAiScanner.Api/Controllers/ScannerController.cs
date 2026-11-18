@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using UpstoxAiScanner.Application.Common;
+using UpstoxAiScanner.Application.DTOs.MarketData;
 using UpstoxAiScanner.Application.DTOs.Scanner;
 using UpstoxAiScanner.Application.Interfaces;
 
 namespace UpstoxAiScanner.Api.Controllers;
 
 /// <summary>
-/// Endpoints for Intraday and Swing trading scanners, rule-based scoring (0-100), and stock rankings.
+/// Endpoints for Intraday and Swing trading scanners, rule-based scoring (0-100), market hours, and background services.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -14,13 +15,22 @@ namespace UpstoxAiScanner.Api.Controllers;
 public class ScannerController : ControllerBase
 {
     private readonly IScannerService _scannerService;
+    private readonly IMarketHoursService _marketHoursService;
+    private readonly IBackgroundScannerControllerService _backgroundService;
+    private readonly IUpstoxWebSocketClient _webSocketClient;
     private readonly ILogger<ScannerController> _logger;
 
     public ScannerController(
         IScannerService scannerService,
+        IMarketHoursService marketHoursService,
+        IBackgroundScannerControllerService backgroundService,
+        IUpstoxWebSocketClient webSocketClient,
         ILogger<ScannerController> logger)
     {
         _scannerService = scannerService;
+        _marketHoursService = marketHoursService;
+        _backgroundService = backgroundService;
+        _webSocketClient = webSocketClient;
         _logger = logger;
     }
 
@@ -190,5 +200,81 @@ public class ScannerController : ControllerBase
 
         var history = await _scannerService.GetLatestScanResultsAsync(scanType, filter, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ScanResultDto>>.Ok(history));
+    }
+
+    /// <summary>
+    /// Returns the real-time Indian stock market session phase (PreOpen, RegularOpen, PostClose, Closed),
+    /// current IST time, and countdowns to open/close.
+    /// </summary>
+    [HttpGet("market-status")]
+    [ProducesResponseType(typeof(ApiResponse<MarketSessionStatus>), StatusCodes.Status200OK)]
+    public IActionResult GetMarketStatus()
+    {
+        var status = _marketHoursService.GetSessionStatus();
+        return Ok(ApiResponse<MarketSessionStatus>.Ok(status, message: status.Message));
+    }
+
+    /// <summary>
+    /// Returns telemetry and execution statistics of the hosted background scanner service.
+    /// </summary>
+    [HttpGet("background/status")]
+    [ProducesResponseType(typeof(ApiResponse<BackgroundScannerStatusDto>), StatusCodes.Status200OK)]
+    public IActionResult GetBackgroundScannerStatus()
+    {
+        var status = _backgroundService.GetStatus();
+        return Ok(ApiResponse<BackgroundScannerStatusDto>.Ok(status));
+    }
+
+    /// <summary>
+    /// Dynamically enables or pauses the scheduled background scanning loop.
+    /// </summary>
+    [HttpPost("background/toggle")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    public IActionResult ToggleBackgroundScanning([FromQuery] bool enabled)
+    {
+        _backgroundService.SetEnabled(enabled);
+        return Ok(ApiResponse<bool>.Ok(enabled, message: $"Background scanning {(enabled ? "enabled" : "paused")}."));
+    }
+
+    /// <summary>
+    /// Overrides market hours checking, allowing automated background scanning to run 24/7 for testing and demonstrations.
+    /// </summary>
+    [HttpPost("background/ignore-market-hours")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    public IActionResult SetIgnoreMarketHours([FromQuery] bool ignore)
+    {
+        _backgroundService.SetIgnoreMarketHours(ignore);
+        return Ok(ApiResponse<bool>.Ok(ignore, message: $"Market hours override set to {ignore}."));
+    }
+
+    /// <summary>
+    /// Returns the list of instrument keys actively subscribed to the real-time WebSocket market data feed.
+    /// </summary>
+    [HttpGet("websocket/subscriptions")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyCollection<string>>), StatusCodes.Status200OK)]
+    public IActionResult GetWebSocketSubscriptions()
+    {
+        var subscriptions = _webSocketClient.Subscriptions;
+        return Ok(ApiResponse<IReadOnlyCollection<string>>.Ok(subscriptions, message: $"{subscriptions.Count} active WebSocket subscriptions."));
+    }
+
+    /// <summary>
+    /// Subscribes instrument keys to the real-time WebSocket market data feed.
+    /// </summary>
+    [HttpPost("websocket/subscribe")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SubscribeWebSocket(
+        [FromQuery] string instrumentKeys,
+        [FromQuery] string mode = "full",
+        CancellationToken cancellationToken = default)
+    {
+        var keys = instrumentKeys.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (keys.Length == 0)
+        {
+            return BadRequest(ApiResponse<bool>.Fail("At least one instrument key must be specified."));
+        }
+
+        await _webSocketClient.SubscribeAsync(keys, mode, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(true, message: $"Subscribed {keys.Length} instruments to WebSocket feed ({mode})."));
     }
 }

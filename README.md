@@ -76,11 +76,26 @@ UpstoxAiScanner/
 - **Intraday Scanner (`/api/scanner/intraday`)**: Scans 5-minute candles for intraday momentum breakouts, fast EMA trends, volume surges ($\ge 2.0\times$), and MACD crossovers.
 - **Persistence & History**: Scanned results and score explanations are automatically persisted into SQL Server `ScanResults` table.
 
+### Phase 5: Hosted Background Services, Indian Market Hours & WebSocket Feed
+- **Indian Market Hours Engine (`IMarketHoursService`)**:
+  - Automatically converts UTC timestamps to Indian Standard Time (IST, UTC+05:30).
+  - Calculates session phases: `PreOpen` (09:00 - 09:15), `RegularOpen` (09:15 - 15:30), `PostClose` (15:30 - 16:00), and `Closed`.
+  - Enforces weekday validation (excludes Saturdays and Sundays).
+- **Hosted Background Scanning Service (`MarketScannerBackgroundService`)**:
+  - Runs in ASP.NET Core as a continuous `BackgroundService`.
+  - Automatically triggers periodic intraday scans every 5 minutes during open market hours.
+  - Detects high-conviction setups ($Score \ge 80$ or $\le 20$) and logs real-time trading alerts.
+  - Overridable via `IgnoreMarketHours` for testing outside live market hours.
+- **Upstox Market Data WebSocket V3 Stream (`IUpstoxWebSocketClient`)**:
+  - Connects to Upstox's live Market Data WebSocket feed when authenticated with an access token.
+  - Auto-subscribes top scanner candidates to receive real-time price & volume ticks.
+  - Realistic simulated tick generator in mock mode with micro-fluctuations and volume increments.
+
 ---
 
 ## 3. API Endpoints
 
-### A. Trading Scanners & Technical Scoring (`/api/scanner`)
+### A. Trading Scanners & Background Services (`/api/scanner`)
 
 | Method | Endpoint | Description | Query Parameters |
 |---|---|---|---|
@@ -89,6 +104,12 @@ UpstoxAiScanner/
 | `GET` | `/api/scanner/stock/{symbol}` | Evaluates single stock on-demand with score breakdown | `symbol`, `scanType` (`Swing`/`Intraday`) |
 | `POST` | `/api/scanner/run` | Triggers universe scan and persists to SQL Server | `scanType`, `universe`, `limit` |
 | `GET` | `/api/scanner/history` | Retrieves historical scan results from database | `scanType`, `universe`, `signal`, `limit` |
+| `GET` | `/api/scanner/market-status` | Current Indian market session status and IST countdown | None |
+| `GET` | `/api/scanner/background/status` | Telemetry & execution state of the background scanner | None |
+| `POST` | `/api/scanner/background/toggle` | Enables or pauses scheduled background scanning | `enabled` (`true`/`false`) |
+| `POST` | `/api/scanner/background/ignore-market-hours` | Overrides market hours for 24/7 scanning & testing | `ignore` (`true`/`false`) |
+| `GET` | `/api/scanner/websocket/subscriptions` | Lists all active real-time WebSocket subscriptions | None |
+| `POST` | `/api/scanner/websocket/subscribe` | Subscribes instrument keys to live WebSocket feed | `instrumentKeys`, `mode` (`full`/`ltpc`) |
 
 ### B. Technical Indicators & Analytics (`/api/indicators`)
 

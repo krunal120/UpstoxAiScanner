@@ -100,6 +100,23 @@ public static class DependencyInjection
         // Register Scanner Service
         services.AddScoped<IScannerService, ScannerService>();
 
+        // Configure Scanner Background options
+        services.Configure<ScannerBackgroundOptions>(options =>
+        {
+            configuration.GetSection(ScannerBackgroundOptions.SectionName).Bind(options);
+        });
+
+        // Register Market Hours Service
+        services.AddSingleton<IMarketHoursService, MarketHoursService>();
+
+        // Register WebSocket Market Data Client
+        services.AddSingleton<IUpstoxWebSocketClient, UpstoxWebSocketClient>();
+
+        // Register Background Scanner Hosted Service & Controller interface
+        services.AddSingleton<MarketScannerBackgroundService>();
+        services.AddHostedService(sp => sp.GetRequiredService<MarketScannerBackgroundService>());
+        services.AddSingleton<IBackgroundScannerControllerService>(sp => sp.GetRequiredService<MarketScannerBackgroundService>());
+
         return services;
     }
 }
